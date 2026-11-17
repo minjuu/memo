@@ -352,3 +352,10 @@ img.avatar { object-fit: cover; border-radius: 50%; background: var(--hover); }
 #moreBtn svg { width: 18px; height: 18px; }
 .ins-ico { display: inline-grid; place-items: center; vertical-align: middle; }
 .ins-ico svg { width: 17px; height: 17px; }
+
+/* 제목: Craft처럼 작게 한 줄, 아래 얇은 선 */
+.doc { padding-top: 22px; }
+.doc-head { display: flex; align-items: center; gap: 6px; margin-bottom: 18px; padding-bottom: 12px; border-bottom: 1px solid var(--line); }
+#icon { flex: none; margin: 0; padding: 2px 4px; border-radius: 6px; font-size: 20px; line-height: 1.2; }
+#title { flex: 1; min-width: 0; margin: 0; font-size: 21px; font-weight: 700; letter-spacing: -0.3px; line-height: 1.35; }
+@media (max-width: 760px) { #icon { font-size: 19px; } #title { font-size: 20px; } }
