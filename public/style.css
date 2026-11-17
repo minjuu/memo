@@ -339,3 +339,16 @@ img.avatar { object-fit: cover; border-radius: 50%; background: var(--hover); }
 .login:hover { background: #e7e9ec; }
 :root[data-theme="dark"] .login { background: #2b2b2b; color: #e6e6e4; }
 @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .login { background: #2b2b2b; color: #e6e6e4; } }
+
+/* 사이드바 선 아이콘 */
+.ti-btn, .tw { display: inline-grid; place-items: center; color: var(--muted); }
+.ti-btn svg { width: 15px; height: 15px; }
+.ti-btn:hover { color: var(--ink); }
+.tw svg { width: 13px; height: 13px; transition: transform .15s; }
+.ti.open > .tw svg { transform: rotate(90deg); }
+.si { display: inline-grid; place-items: center; }
+.si svg { width: 17px; height: 17px; }
+.side-top .icon-btn svg, #menuBtn svg { width: 17px; height: 17px; }
+#moreBtn svg { width: 18px; height: 18px; }
+.ins-ico { display: inline-grid; place-items: center; vertical-align: middle; }
+.ins-ico svg { width: 17px; height: 17px; }

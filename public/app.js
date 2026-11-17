@@ -3,6 +3,8 @@ const KEY = 'note.v1';
 const $ = (s, el = document) => el.querySelector(s);
 const uid = () => Math.random().toString(36).slice(2, 10);
 const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+// 사이드바용 얇은 선 아이콘
+const ICON = {"plus": "<svg viewBox=\"0 0 20 20\" width=\"16\" height=\"16\" aria-hidden=\"true\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.5\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><path d=\"M10 4.5v11M4.5 10h11\"/></svg>", "trash": "<svg viewBox=\"0 0 20 20\" width=\"16\" height=\"16\" aria-hidden=\"true\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.5\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><path d=\"M4 6h12M8 6V4.5h4V6M6 6l.7 9.5h6.6L14 6\"/></svg>", "chev": "<svg viewBox=\"0 0 20 20\" width=\"16\" height=\"16\" aria-hidden=\"true\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.5\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><path d=\"M8 5.5l4.5 4.5L8 14.5\"/></svg>"};
 const ICONS = ['📄', '📝', '📌', '💡', '📚', '🗂️', '✅', '🎯', '🌱', '☕️', '🧠', '📅', '✈️', '🎨', '🎵', '🍀',
   '🏠', '💼', '💰', '🛒', '🍳', '🏃', '❤️', '⭐️', '🔥', '🌙', '📷', '🎁', '🧩', '🔖', '📮', '🐶'];
 
@@ -199,13 +201,13 @@ function renderTree() {
 function treeItem(id, depth, flat) {
   const p = db.pages[id];
   const kids = p.children.length;
-  const tw = flat ? '' : kids ? (p.open ? '▾' : '▸') : '';
-  return `<div class="ti${id === cur ? ' on' : ''}" data-id="${id}" role="treeitem" style="padding-left:${4 + depth * 14}px">
+  const tw = flat || !kids ? '' : ICON.chev;
+  return `<div class="ti${id === cur ? ' on' : ''}${p.open ? ' open' : ''}" data-id="${id}" role="treeitem" style="padding-left:${4 + depth * 14}px">
       <button class="tw" data-act="toggle" aria-label="${p.open ? '접기' : '펼치기'}" ${kids && !flat ? '' : 'tabindex="-1"'}>${tw}</button>
       <span class="ti-ico emoji">${esc(p.icon)}</span>
       <span class="ti-title">${esc(p.title || '제목 없음')}</span>
-      <button class="ti-btn" data-act="add" aria-label="하위 페이지 추가" title="하위 페이지 추가">＋</button>
-      <button class="ti-btn" data-act="del" aria-label="페이지 삭제" title="삭제">✕</button>
+      <button class="ti-btn" data-act="add" aria-label="하위 페이지 추가" title="하위 페이지 추가">${ICON.plus}</button>
+      <button class="ti-btn" data-act="del" aria-label="페이지 삭제" title="삭제">${ICON.trash}</button>
     </div>${kids && p.open && !flat ? p.children.map(c => treeItem(c, depth + 1)).join('') : ''}`;
 }
 
@@ -1304,8 +1306,9 @@ $('#icon').onclick = e => {
 // 마지막으로 만진 블록 아래에 넣는다
 let lastBlockId = null;
 document.addEventListener('focusin', e => { const r = e.target.closest?.('#blocks .blk'); if (r) lastBlockId = r.dataset.id; });
-const INSERT = [['image', '🖼', '갤러리', '이미지'], ['file', '📎', '파일', ''], ['-'], ['code', '{ }', '코드 블록', ''], ['math', 'ƒx', '공식', ''],
-  ['-'], ['todo', '☑', '할 일', ''], ['toggle', '▸', '토글', ''], ['table', '▦', '표', ''], ['-'], ['divider', '✂', '페이지 나누기', '']];
+const INSERT_ICON = {"image": "<svg viewBox=\"0 0 20 20\" width=\"17\" height=\"17\" aria-hidden=\"true\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.5\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><rect x=\"3\" y=\"4\" width=\"14\" height=\"12\" rx=\"2\"/><circle cx=\"7.5\" cy=\"8.3\" r=\"1.3\"/><path d=\"M3.5 14l4-4 3 3 2-2 4 4\"/></svg>", "file": "<svg viewBox=\"0 0 20 20\" width=\"17\" height=\"17\" aria-hidden=\"true\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.5\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><path d=\"M14.5 9.5l-5 5a3.2 3.2 0 0 1-4.5-4.5l5.6-5.6a2.1 2.1 0 0 1 3 3L8.1 13a1 1 0 0 1-1.5-1.5l4.9-4.9\"/></svg>", "code": "<svg viewBox=\"0 0 20 20\" width=\"17\" height=\"17\" aria-hidden=\"true\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.5\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><path d=\"M7.5 6L3.5 10l4 4M12.5 6l4 4-4 4\"/></svg>", "todo": "<svg viewBox=\"0 0 20 20\" width=\"17\" height=\"17\" aria-hidden=\"true\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.5\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><circle cx=\"10\" cy=\"10\" r=\"6.5\"/><path d=\"M7.2 10.2l2 2 3.8-4\"/></svg>", "divider": "<svg viewBox=\"0 0 20 20\" width=\"17\" height=\"17\" aria-hidden=\"true\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.5\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><path d=\"M3 10h14\"/><path d=\"M6 6.5h8M6 13.5h8\" stroke-dasharray=\"1.5 2\"/></svg>"};
+const INSERT = [['image', INSERT_ICON.image, '갤러리', '이미지'], ['file', INSERT_ICON.file, '파일', ''], ['-'], ['code', '{ }', '코드 블록', ''], ['math', 'ƒx', '공식', ''],
+  ['-'], ['todo', INSERT_ICON.todo, '할 일', ''], ['toggle', '▸', '토글', ''], ['table', '▦', '표', ''], ['-'], ['divider', INSERT_ICON.divider, '페이지 나누기', '']];
 $('#insertBtn').onclick = e => {
   openPop(INSERT.map(([v, ico, label]) => v === '-' ? '<hr>' : `<button class="mi compact" data-v="${v}"><span class="ins-ico">${ico}</span>${label}</button>`).join(''), e.currentTarget, v => {
     const list = page().blocks;
