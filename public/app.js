@@ -15,12 +15,13 @@ const TYPES = {
   number: { label: '번호 목록', hint: '번호를 붙여 나열해요', ico: '1.', keys: 'number numbered list 번호 목록' },
   todo: { label: '할 일 목록', hint: '체크박스로 관리해요', ico: '☑', keys: 'todo check task 할일 할 일 체크' },
   quote: { label: '인용', hint: '인용문을 적어요', ico: '❝', keys: 'quote 인용' },
+  toggle: { label: '토글 목록', hint: '눌러서 접고 펼쳐요', ico: '▸', keys: 'toggle 토글 접기 펼치기' },
   callout: { label: '콜아웃', hint: '눈에 띄게 강조해요', ico: '💡', keys: 'callout 콜아웃 강조' },
   code: { label: '코드', hint: '코드를 적어요', ico: '</>', keys: 'code 코드' },
   divider: { label: '구분선', hint: '구역을 나눠요', ico: '—', keys: 'divider hr line 구분선 선' },
   page: { label: '페이지', hint: '안에 새 페이지를 만들어요', ico: '📄', keys: 'page 페이지 하위' },
 };
-const PH = { text: "'/'를 입력해 명령어 사용", h1: '제목 1', h2: '제목 2', h3: '제목 3', bullet: '목록', number: '목록', todo: '할 일', quote: '인용', callout: '내용을 입력하세요', code: '코드' };
+const PH = { text: "'/'를 입력해 명령어 사용", h1: '제목 1', h2: '제목 2', h3: '제목 3', bullet: '목록', number: '목록', todo: '할 일', quote: '인용', callout: '내용을 입력하세요', code: '코드', toggle: '토글' };
 const LISTS = ['bullet', 'number', 'todo'];
 
 /* ---------- 저장 ---------- */
@@ -207,7 +208,11 @@ function blockHtml(b) {
   if (b.type === 'bullet' || b.type === 'number') pre = '<span class="mk" aria-hidden="true"></span>';
   if (b.type === 'todo') pre = `<input type="checkbox" class="chk" aria-label="완료" ${b.checked ? 'checked' : ''}>`;
   if (b.type === 'callout') pre = '<span class="co" aria-hidden="true">💡</span>';
-  if (b.type === 'divider') body = '<hr>';
+  if (b.type === 'toggle') {
+    pre = `<button class="tg" tabindex="-1" aria-label="${b.open ? '접기' : '펼치기'}" aria-expanded="${!!b.open}">▸</button>`;
+    body = `<div class="tg-col"><div class="c" contenteditable="true" data-ph="토글">${b.html}</div>` +
+      `<div class="tb" contenteditable="true" data-ph="안에 넣을 내용"${b.open ? '' : ' hidden'}>${b.body || ''}</div></div>`;
+  } else if (b.type === 'divider') body = '<hr>';
   else if (b.type === 'page') {
     const t = db.pages[b.page];
     body = t ? `<a class="plink" href="#/p/${t.id}"><span class="emoji">${esc(t.icon)}</span><u>${esc(t.title || '제목 없음')}</u></a>`
@@ -216,7 +221,7 @@ function blockHtml(b) {
     body = `<div class="c" contenteditable="true" data-ph="${PH[b.type]}"${b.type === 'code' ? ' spellcheck="false"' : ''}>${b.html}</div>`;
   }
   const solid = b.type === 'divider' || b.type === 'page';
-  return `<div class="blk t-${b.type}${b.checked ? ' done' : ''}" data-id="${b.id}"${solid ? ' tabindex="-1"' : ''}>
+  return `<div class="blk t-${b.type}${b.checked ? ' done' : ''}${b.type === 'toggle' && b.open ? ' open' : ''}" data-id="${b.id}"${solid ? ' tabindex="-1"' : ''}>
     <div class="hd"><button class="add" tabindex="-1" aria-label="아래에 블록 추가" title="아래에 블록 추가">＋</button><button class="grip" draggable="true" tabindex="-1" aria-label="블록 메뉴" title="끌어서 옮기기 · 눌러서 메뉴">⋮⋮</button></div>
     ${pre}${body}</div>`;
 }
@@ -235,7 +240,8 @@ function commit(focusId, at) {
 
 /* ---------- 커서 ---------- */
 
-const editOf = id => $(`.blk[data-id="${id}"] > .c`);
+const editOf = id => $(`.blk[data-id="${id}"] .c`);
+const bodyOf = id => $(`.blk[data-id="${id}"] .tb`);
 const textLen = html => { const d = document.createElement('div'); d.innerHTML = html; return d.textContent.length; };
 
 function caret(el) {
@@ -290,7 +296,12 @@ function clean(html) {
       if (n.nodeType === 3) continue;
       if (n.nodeType !== 1) { n.remove(); continue; }
       walk(n);
-      if (!ALLOWED.has(n.tagName)) { n.replaceWith(...n.childNodes); continue; }
+      if (!ALLOWED.has(n.tagName)) {
+        // 줄 단위 태그는 풀면서 줄바꿈을 남긴다
+        if ((n.tagName === 'DIV' || n.tagName === 'P') && n.previousSibling) n.before(document.createElement('br'));
+        n.replaceWith(...n.childNodes);
+        continue;
+      }
       for (const a of [...n.attributes]) {
         if (!(n.tagName === 'A' && a.name === 'href' && /^https?:/i.test(a.value))) n.removeAttribute(a.name);
       }
@@ -315,7 +326,44 @@ function insertAfter(id, type = 'text', html = '', extra) {
   return nb;
 }
 
+function placeBody(id, at) {
+  const el = bodyOf(id);
+  if (!el) return;
+  el.focus();
+  const [node, off] = pointAt(el, at < 0 ? el.textContent.length : at);
+  const r = document.createRange();
+  r.setStart(node, off);
+  r.collapse(true);
+  getSelection().removeAllRanges();
+  getSelection().addRange(r);
+}
+
+// 토글 안쪽 내용: 엔터는 줄바꿈, 맨 앞에서 지우거나 위로 가면 토글 제목으로
+function toggleBodyKey(e, b, el) {
+  if (e.isComposing || e.keyCode === 229) return;
+  const at = caret(el), collapsed = getSelection().isCollapsed, list = page().blocks, i = idx(b.id);
+  if (e.key === 'Enter' && !e.shiftKey) {
+    e.preventDefault();
+    return document.execCommand('insertLineBreak');
+  }
+  if ((e.key === 'Backspace' && collapsed && at === 0 && !el.textContent) || (e.key === 'ArrowUp' && collapsed && at === 0)) {
+    e.preventDefault();
+    return place(b.id, -1);
+  }
+  if (e.key === 'ArrowDown' && collapsed && at === el.textContent.length && list[i + 1]) {
+    e.preventDefault();
+    return place(list[i + 1].id, 0);
+  }
+}
+
 function setType(b, type) {
+  // 토글을 다른 종류로 바꾸면 안의 내용은 본문 뒤에 붙인다
+  if (b.type === 'toggle' && type !== 'toggle') {
+    if (b.body) b.html = b.html ? `${b.html}<br>${b.body}` : b.body;
+    delete b.body;
+    delete b.open;
+  }
+  if (type === 'toggle' && b.type !== 'toggle') b.open = true;
   b.type = type;
   if (type !== 'todo') delete b.checked;
   if (type === 'divider') b.html = '';
@@ -572,6 +620,7 @@ blocksEl.addEventListener('keydown', e => {
   }
   const b = blk(row.dataset.id);
   if (slashKey(e)) return;
+  if (e.target.classList.contains('tb')) return toggleBodyKey(e, b, e.target);
   const el = e.target.classList.contains('c') ? e.target : null;
   const i = idx(b.id), list = page().blocks;
 
@@ -588,7 +637,9 @@ blocksEl.addEventListener('keydown', e => {
 
   if (e.key === 'Enter' && !e.shiftKey) {
     e.preventDefault();
-    if (b.type === 'code') return document.execCommand('insertText', false, '\n');
+    if (b.type === 'code') return document.execCommand('insertLineBreak');
+    // 펼쳐진 토글에서 엔터를 치면 안쪽 내용으로 들어간다
+    if (b.type === 'toggle' && b.open && caret(el) === el.textContent.length) return placeBody(b.id, 0);
     return splitBlock(b, el);
   }
   if (e.key === 'Backspace' && collapsed && at === 0) {
@@ -597,7 +648,12 @@ blocksEl.addEventListener('keydown', e => {
     if (b.type !== 'text') { setType(b, 'text'); return commit(b.id, 0); }
     return mergeUp(b, el);
   }
-  if (e.key === 'ArrowUp' && collapsed && at === 0 && list[i - 1]) { e.preventDefault(); return place(list[i - 1].id, -1); }
+  if (e.key === 'ArrowUp' && collapsed && at === 0 && list[i - 1]) {
+    e.preventDefault();
+    const prev = list[i - 1];
+    return prev.type === 'toggle' && prev.open ? placeBody(prev.id, -1) : place(prev.id, -1);
+  }
+  if (e.key === 'ArrowDown' && b.type === 'toggle' && b.open && collapsed && at === el.textContent.length) { e.preventDefault(); return placeBody(b.id, 0); }
   if (e.key === 'ArrowDown' && collapsed && at === el.textContent.length && list[i + 1]) { e.preventDefault(); return place(list[i + 1].id, 0); }
   if (e.key === 'Tab') e.preventDefault();
   if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'e') {
@@ -619,6 +675,12 @@ function wrapCode() {
 
 blocksEl.addEventListener('input', e => {
   const el = e.target;
+  if (el.classList?.contains('tb')) {
+    const b = blk(el.closest('.blk').dataset.id);
+    b.body = el.textContent ? clean(el.innerHTML) : '';
+    if (!el.textContent && el.innerHTML) el.innerHTML = '';
+    return save();
+  }
   if (!el.classList?.contains('c')) return;
   const b = blk(el.closest('.blk').dataset.id);
   if (!e.isComposing && shortcut(b, el, e)) return;
@@ -630,6 +692,10 @@ blocksEl.addEventListener('input', e => {
 });
 
 blocksEl.addEventListener('paste', e => {
+  if (e.target.closest('.tb')) {
+    e.preventDefault();
+    return document.execCommand('insertText', false, e.clipboardData.getData('text/plain').replace(/\r/g, ''));
+  }
   const el = e.target.closest('.c');
   if (!el) return;
   e.preventDefault();
@@ -672,6 +738,16 @@ blocksEl.addEventListener('click', e => {
     return openSlash(nb.id, 0);
   }
   if (e.target.closest('.grip')) return blockMenu(b, e.target.closest('.grip'));
+  if (e.target.closest('.tg')) {
+    b.open = !b.open;
+    save();
+    row.classList.toggle('open', b.open);
+    const tg = row.querySelector('.tg');
+    tg.setAttribute('aria-expanded', b.open);
+    tg.setAttribute('aria-label', b.open ? '접기' : '펼치기');
+    bodyOf(b.id).hidden = !b.open;
+    return b.open ? placeBody(b.id, 0) : place(b.id, -1);
+  }
   if (b.type === 'divider') row.focus();
 });
 
@@ -844,6 +920,7 @@ function toMarkdown(p) {
       case 'todo': return `- [${b.checked ? 'x' : ' '}] ${t}`;
       case 'quote': return `> ${t}`;
       case 'callout': return `> 💡 ${t}`;
+      case 'toggle': return [`- ▸ ${t}`, ...md(b.body || '').split('\n').filter(Boolean).map(l => `  ${l}`)].join('\n');
       case 'code': return `\`\`\`\n${t}\n\`\`\``;
       case 'divider': return '---';
       case 'page': return `- 📄 ${db.pages[b.page]?.title || '삭제된 페이지'}`;

@@ -181,3 +181,12 @@ main { flex: 1; min-width: 0; overflow-y: auto; }
 /* 여러 블록 선택 */
 #blocks:focus { outline: none; }
 .blk.picked { background: var(--sel); }
+
+/* 토글 */
+.tg { flex: none; width: 22px; height: 28px; border-radius: 4px; color: var(--muted); font-size: 15px; line-height: 1; transition: transform .15s; }
+.tg:hover { background: var(--hover); }
+.t-toggle.open .tg { transform: rotate(90deg); }
+.tg-col { flex: 1; min-width: 0; }
+.tb { margin: 0 0 4px; padding: 2px 2px 2px 4px; outline: none; white-space: pre-wrap; overflow-wrap: anywhere; }
+.tb:empty::before { content: attr(data-ph); color: var(--faint); pointer-events: none; }
+.tb[hidden] { display: none; }
