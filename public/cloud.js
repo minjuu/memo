@@ -75,6 +75,10 @@ if (!firebaseConfig.apiKey) {
       synced = new Map();
       syncedRoot = null;
       await flush();
+      for (const id of app.fileIds()) {
+        const data = await app.fileData(id);
+        if (data) await window.cloud.putFile(id, data);
+      }
     }
   }
 
@@ -93,6 +97,21 @@ if (!firebaseConfig.apiKey) {
       clearTimeout(timer);
       await flush();
       await auth.signOut(a);
+    },
+    // 이미지·파일은 users/{uid}/files/{id} 문서 하나에 하나씩 둔다
+    async putFile(id, data) {
+      if (!user) return;
+      try {
+        await fs.setDoc(fs.doc(store, 'users', user.uid, 'files', id), { data });
+      } catch (e) {
+        console.error(e);
+        app.status('파일을 올리지 못했어요');
+      }
+    },
+    async getFile(id) {
+      if (!user) return null;
+      const d = await fs.getDoc(fs.doc(store, 'users', user.uid, 'files', id));
+      return d.exists() ? d.data().data : null;
     },
     schedule() {
       if (!user) return;

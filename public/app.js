@@ -19,9 +19,13 @@ const TYPES = {
   callout: { label: '콜아웃', hint: '눈에 띄게 강조해요', ico: '💡', keys: 'callout 콜아웃 강조' },
   code: { label: '코드', hint: '코드를 적어요', ico: '</>', keys: 'code 코드' },
   divider: { label: '구분선', hint: '구역을 나눠요', ico: '—', keys: 'divider hr line 구분선 선' },
+  image: { label: '이미지', hint: '사진을 올려요', ico: '🖼', keys: 'image 이미지 사진 갤러리 gallery' },
+  file: { label: '파일', hint: '파일을 올려요 (700KB까지)', ico: '📎', keys: 'file 파일 첨부' },
+  math: { label: '공식', hint: 'LaTeX 수식을 써요', ico: 'ƒx', keys: 'math 공식 수식 latex' },
+  table: { label: '표', hint: '칸을 나눠 정리해요', ico: '▦', keys: 'table 표 테이블' },
   page: { label: '페이지', hint: '안에 새 페이지를 만들어요', ico: '📄', keys: 'page 페이지 하위' },
 };
-const PH = { text: "'/'를 입력해 명령어 사용", h1: '제목 1', h2: '제목 2', h3: '제목 3', bullet: '목록', number: '목록', todo: '할 일', quote: '인용', callout: '내용을 입력하세요', code: '코드', toggle: '토글' };
+const PH = { text: "'/'를 입력해 명령어 사용", h1: '제목 1', h2: '제목 2', h3: '제목 3', bullet: '목록', number: '목록', todo: '할 일', quote: '인용', callout: '내용을 입력하세요', code: '코드', toggle: '토글', math: '수식 (LaTeX)  예: E = mc^2' };
 const LISTS = ['bullet', 'number', 'todo'];
 
 /* ---------- 저장 ---------- */
@@ -67,8 +71,55 @@ function load() {
 }
 db = load();
 
+/* ---------- 되돌리기 (⌘Z / ⇧⌘Z) ---------- */
+
+const hist = { page: null, last: null, undo: [], redo: [], timer: null, restoring: false };
+const snap = () => JSON.stringify({ title: db.pages[hist.page]?.title, icon: db.pages[hist.page]?.icon, blocks: db.pages[hist.page]?.blocks });
+function histReset() {
+  clearTimeout(hist.timer);
+  hist.page = cur;
+  hist.last = cur ? snap() : null;
+  hist.undo = [];
+  hist.redo = [];
+}
+function checkpoint() {
+  clearTimeout(hist.timer);
+  hist.timer = null;
+  if (!hist.page || hist.restoring || !db.pages[hist.page]) return;
+  const now = snap();
+  if (now === hist.last) return;
+  hist.undo.push(hist.last);
+  if (hist.undo.length > 200) hist.undo.shift();
+  hist.redo = [];
+  hist.last = now;
+}
+function restore(from, to) {
+  checkpoint();
+  if (!from.length) return flash(to === hist.redo ? '더 되돌릴 게 없어요' : '다시 할 게 없어요');
+  to.push(hist.last);
+  hist.last = from.pop();
+  const state = JSON.parse(hist.last), p = db.pages[hist.page];
+  hist.restoring = true;
+  p.title = state.title;
+  p.icon = state.icon;
+  p.blocks = state.blocks;
+  const keep = lastBlockId && p.blocks.some(b => b.id === lastBlockId) ? lastBlockId : null;
+  renderPage();
+  renderTree();
+  if (keep) place(keep, -1);
+  save();
+  hist.restoring = false;
+}
+document.addEventListener('keydown', e => {
+  if (!(e.metaKey || e.ctrlKey) || e.key.toLowerCase() !== 'z' || !cur) return;
+  e.preventDefault();
+  if (e.shiftKey) restore(hist.redo, hist.undo); else restore(hist.undo, hist.redo);
+}, true);
+
 let saveTimer;
 function save() {
+  // 입력은 0.6초 단위로 묶어서 되돌리기 한 번에 들어가게 한다
+  if (!hist.restoring && hist.page === cur) { clearTimeout(hist.timer); hist.timer = setTimeout(checkpoint, 600); }
   const p = db.pages[cur];
   if (p) p.updated = Date.now();
   clearTimeout(saveTimer);
@@ -208,7 +259,18 @@ function blockHtml(b) {
   if (b.type === 'bullet' || b.type === 'number') pre = '<span class="mk" aria-hidden="true"></span>';
   if (b.type === 'todo') pre = `<input type="checkbox" class="chk" aria-label="완료" ${b.checked ? 'checked' : ''}>`;
   if (b.type === 'callout') pre = '<span class="co" aria-hidden="true">💡</span>';
-  if (b.type === 'toggle') {
+  if (b.type === 'image') {
+    body = `<figure class="media"><img data-src="${esc(b.src || '')}" alt="" onerror="this.parentNode.classList.add('missing')"></figure>`;
+  } else if (b.type === 'file') {
+    body = `<a class="file-blk" data-src="${esc(b.src || '')}" download="${esc(b.name || '파일')}"><span class="emoji">📎</span><b>${esc(b.name || '파일')}</b><small>${fmtSize(b.size)}</small></a>`;
+  } else if (b.type === 'table') {
+    const rows = b.rows?.length ? b.rows : [{ c: [''] }];
+    body = `<div class="tbl-wrap"><table class="tbl"><tbody>${rows.map((r, ri) => `<tr>${r.c.map((cell, ci) =>
+      `<td contenteditable="true" data-r="${ri}" data-c="${ci}">${cell}</td>`).join('')}</tr>`).join('')}</tbody></table>
+      <div class="tbl-tools"><button data-tbl="row">＋ 행</button><button data-tbl="col">＋ 열</button><button data-tbl="delrow">－ 행</button><button data-tbl="delcol">－ 열</button></div></div>`;
+  } else if (b.type === 'math') {
+    body = `<div class="math-wrap"><div class="c math-src" contenteditable="true" spellcheck="false" data-ph="${PH.math}">${b.html}</div><div class="math-out"></div></div>`;
+  } else if (b.type === 'toggle') {
     pre = `<button class="tg" tabindex="-1" aria-label="${b.open ? '접기' : '펼치기'}" aria-expanded="${!!b.open}">▸</button>`;
     body = `<div class="tg-col"><div class="c" contenteditable="true" data-ph="토글">${b.html}</div>` +
       (b.body ? `<div class="tb" contenteditable="true"${b.open ? '' : ' hidden'}>${b.body}</div>` : '') + '</div>';
@@ -220,7 +282,7 @@ function blockHtml(b) {
   } else {
     body = `<div class="c" contenteditable="true" data-ph="${PH[b.type]}"${b.type === 'code' ? ' spellcheck="false"' : ''}>${b.html}</div>`;
   }
-  const solid = b.type === 'divider' || b.type === 'page';
+  const solid = ['divider', 'page', 'image', 'file', 'table'].includes(b.type);
   return `<div class="blk t-${b.type}${b.checked ? ' done' : ''}${b.type === 'toggle' && b.open ? ' open' : ''}" data-id="${b.id}"${solid ? ' tabindex="-1"' : ''}${b.indent ? ` style="--ind:${b.indent}"` : ''}${hiddenIds.has(b.id) ? ' hidden' : ''}>
     <div class="hd"><button class="add" tabindex="-1" aria-label="아래에 블록 추가" title="아래에 블록 추가">＋</button><button class="grip" draggable="true" tabindex="-1" aria-label="블록 메뉴" title="끌어서 옮기기 · 눌러서 메뉴">⋮⋮</button></div>
     ${pre}${body}</div>`;
@@ -248,6 +310,7 @@ function subtreeEnd(i) {
 }
 
 function shiftIndent(b, delta) {
+  checkpoint();
   const list = page().blocks, i = idx(b.id), end = subtreeEnd(i);
   const prev = list[i - 1];
   const max = prev ? (prev.indent || 0) + 1 : 0;
@@ -269,12 +332,211 @@ function renderBlocks(focusId, at = 0) {
   if (!p.blocks.length) p.blocks.push({ id: uid(), type: 'text', html: '' });
   hiddenIds = computeHidden(p.blocks);
   $('#blocks').innerHTML = p.blocks.map(blockHtml).join('');
+  hydrateMedia();
+  document.querySelectorAll('#blocks .t-math').forEach(renderMath);
   if (focusId) place(focusId, at);
+}
+
+/* ---------- 이미지 · 파일 저장 (이 기기 IndexedDB + 로그인하면 Firestore) ---------- */
+
+const fmtSize = n => !n ? '' : n < 1024 ? `${n}B` : n < 1048576 ? `${Math.round(n / 1024)}KB` : `${(n / 1048576).toFixed(1)}MB`;
+let idbP;
+const idb = () => idbP ||= new Promise((ok, fail) => {
+  const r = indexedDB.open('memo-files', 1);
+  r.onupgradeneeded = () => r.result.createObjectStore('f');
+  r.onsuccess = () => ok(r.result);
+  r.onerror = () => fail(r.error);
+});
+async function fileGet(id) {
+  try {
+    const st = await idb();
+    return await new Promise(ok => {
+      const q = st.transaction('f').objectStore('f').get(id);
+      q.onsuccess = () => ok(q.result || null);
+      q.onerror = () => ok(null);
+    });
+  } catch { return null; }
+}
+async function filePut(id, data) {
+  try {
+    const st = await idb();
+    await new Promise(ok => {
+      const t = st.transaction('f', 'readwrite');
+      t.objectStore('f').put(data, id);
+      t.oncomplete = t.onerror = () => ok();
+    });
+  } catch {}
+}
+const fileCache = new Map();
+async function loadFile(id) {
+  if (fileCache.has(id)) return fileCache.get(id);
+  let data = await fileGet(id);
+  if (!data && window.cloud?.user) {
+    data = await window.cloud.getFile(id).catch(() => null);
+    if (data) filePut(id, data);
+  }
+  if (data) fileCache.set(id, data);
+  return data;
+}
+async function saveFile(data) {
+  const id = uid() + uid();
+  fileCache.set(id, data);
+  await filePut(id, data);
+  window.cloud?.putFile(id, data);
+  return id;
+}
+const readAsDataURL = f => new Promise((ok, fail) => {
+  const r = new FileReader();
+  r.onload = () => ok(r.result);
+  r.onerror = fail;
+  r.readAsDataURL(f);
+});
+// DB 한 칸(1MB)에 들어가도록 사진을 줄인다
+async function shrinkImage(file) {
+  const url = URL.createObjectURL(file);
+  try {
+    const img = await loadImg(url);
+    let max = 1600, q = 0.85, out;
+    for (let n = 0; n < 6; n++) {
+      const k = Math.min(1, max / Math.max(img.naturalWidth, img.naturalHeight));
+      const c = document.createElement('canvas');
+      c.width = Math.max(1, Math.round(img.naturalWidth * k));
+      c.height = Math.max(1, Math.round(img.naturalHeight * k));
+      const ctx = c.getContext('2d');
+      ctx.fillStyle = '#fff';
+      ctx.fillRect(0, 0, c.width, c.height);
+      ctx.drawImage(img, 0, 0, c.width, c.height);
+      out = c.toDataURL('image/jpeg', q);
+      if (out.length < 700000) break;
+      max *= 0.75;
+      q -= 0.08;
+    }
+    return out;
+  } finally {
+    URL.revokeObjectURL(url);
+  }
+}
+const loadImg = src => new Promise((ok, fail) => {
+  const i = new Image();
+  i.onload = () => ok(i);
+  i.onerror = fail;
+  i.src = src;
+});
+
+function hydrateMedia() {
+  document.querySelectorAll('#blocks [data-src]').forEach(async el => {
+    const src = el.dataset.src;
+    const url = src.startsWith('file:') ? await loadFile(src.slice(5)) : src;
+    if (!url) return el.closest('.media, .file-blk')?.classList.add('missing');
+    if (el.tagName === 'IMG') el.src = url; else el.href = url;
+  });
+}
+
+async function insertFiles(files, b) {
+  const made = [];
+  flash('올리는 중');
+  for (const f of files) {
+    if (f.type.startsWith('image/')) {
+      const data = await shrinkImage(f).catch(() => null);
+      if (!data) { flash('이미지를 읽지 못했어요'); continue; }
+      made.push({ id: uid(), type: 'image', html: '', src: `file:${await saveFile(data)}` });
+    } else {
+      if (f.size > 700 * 1024) { flash('파일은 700KB까지 올릴 수 있어요'); continue; }
+      made.push({ id: uid(), type: 'file', html: '', name: f.name, size: f.size, src: `file:${await saveFile(await readAsDataURL(f))}` });
+    }
+  }
+  if (made.length) placeNew(made, b);
+}
+
+function pickFiles(accept, b) {
+  const input = document.createElement('input');
+  input.type = 'file';
+  input.multiple = true;
+  if (accept) input.accept = accept;
+  input.onchange = () => input.files.length && insertFiles([...input.files], b);
+  input.click();
+}
+
+// 새 블록들을 b 아래(빈 줄이면 그 자리)에 넣는다
+function placeNew(made, b, focusAt = -1) {
+  checkpoint();
+  const list = page().blocks;
+  if (b && !list.includes(b)) b = null;
+  const ind = b?.indent || 0;
+  made.forEach(m => { if (ind) m.indent = ind; });
+  let at = b ? subtreeEnd(idx(b.id)) + 1 : list.length;
+  if (b && b.type === 'text' && !b.html) { list.splice(idx(b.id), 1); at--; }
+  list.splice(at, 0, ...made);
+  commit(made[made.length - 1].id, focusAt);
+}
+
+/* ---------- 공식 (KaTeX) ---------- */
+
+let katexP;
+function loadKatex() {
+  if (window.katex) return Promise.resolve();
+  return katexP ||= new Promise((ok, fail) => {
+    const css = document.createElement('link');
+    css.rel = 'stylesheet';
+    css.href = 'https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css';
+    document.head.append(css);
+    const js = document.createElement('script');
+    js.src = 'https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js';
+    js.onload = ok;
+    js.onerror = fail;
+    document.head.append(js);
+  });
+}
+function renderMath(row) {
+  const out = row.querySelector('.math-out'), tex = row.querySelector('.math-src').textContent;
+  if (!tex) { out.textContent = ''; return; }
+  if (!window.katex) { out.textContent = tex; loadKatex().then(() => renderMath(row)).catch(() => {}); return; }
+  try { window.katex.render(tex, out, { throwOnError: false, displayMode: true }); } catch { out.textContent = tex; }
+}
+
+/* ---------- 표 ---------- */
+
+const newTable = () => ({ id: uid(), type: 'table', html: '', rows: [{ c: ['', '', ''] }, { c: ['', '', ''] }, { c: ['', '', ''] }] });
+function focusCell(id, r, c) {
+  const td = $(`.blk[data-id="${id}"] td[data-r="${r}"][data-c="${c}"]`);
+  if (!td) return;
+  td.focus();
+  const range = document.createRange();
+  range.selectNodeContents(td);
+  range.collapse(false);
+  getSelection().removeAllRanges();
+  getSelection().addRange(range);
+}
+function tableEdit(b, act, r = b.rows.length - 1, c = 0) {
+  checkpoint();
+  const cols = b.rows[0].c.length;
+  if (act === 'row') b.rows.splice(r + 1, 0, { c: Array(cols).fill('') });
+  if (act === 'col') b.rows.forEach(row => row.c.splice(c + 1, 0, ''));
+  if (act === 'delrow' && b.rows.length > 1) b.rows.splice(r, 1);
+  if (act === 'delcol' && cols > 1) b.rows.forEach(row => row.c.splice(c, 1));
+  commit();
+}
+function tableKey(e, b, td) {
+  const r = +td.dataset.r, c = +td.dataset.c, rows = b.rows.length, cols = b.rows[0].c.length;
+  if (e.isComposing || e.keyCode === 229) return;
+  if (e.key === 'Tab') {
+    e.preventDefault();
+    let n = r * cols + c + (e.shiftKey ? -1 : 1);
+    if (n >= rows * cols) { tableEdit(b, 'row', rows - 1); n = rows * cols; }
+    if (n < 0) return;
+    return focusCell(b.id, Math.floor(n / cols), n % cols);
+  }
+  if (e.key === 'Enter' && !e.shiftKey) {
+    e.preventDefault();
+    if (r === rows - 1) tableEdit(b, 'row', r);
+    return focusCell(b.id, r + 1, c);
+  }
 }
 
 function commit(focusId, at) {
   renderBlocks(focusId, at);
   save();
+  checkpoint();
 }
 
 /* ---------- 커서 ---------- */
@@ -409,6 +671,7 @@ function setType(b, type) {
 }
 
 function splitBlock(b, el) {
+  checkpoint();
   const s = getSelection();
   const r = s.getRangeAt(0);
   r.deleteContents();
@@ -436,6 +699,7 @@ function splitBlock(b, el) {
 }
 
 function mergeUp(b, el) {
+  checkpoint();
   const i = idx(b.id), prev = neighbor(b.id, -1);
   if (!prev) return;
   if (prev.type === 'divider' || prev.type === 'page') {
@@ -449,6 +713,7 @@ function mergeUp(b, el) {
 }
 
 function removeBlock(id) {
+  checkpoint();
   const i = idx(id), list = page().blocks;
   list.splice(i, 1);
   const next = list[i - 1] || list[i];
@@ -456,6 +721,7 @@ function removeBlock(id) {
 }
 
 function moveBlock(id, toIndex) {
+  checkpoint();
   const list = page().blocks, i = idx(id);
   const [b] = list.splice(i, 1);
   list.splice(Math.max(0, Math.min(list.length, toIndex)), 0, b);
@@ -539,6 +805,9 @@ function chooseSlash(type) {
 
 // 블록 종류 바꾸기 (슬래시 메뉴, 블록 메뉴 공용)
 function applyType(b, type, at = 0) {
+  checkpoint();
+  if (type === 'image' || type === 'file') { commit(b.id, -1); return pickFiles(type === 'image' ? 'image/*' : '', b); }
+  if (type === 'table') return placeNew([newTable()], b, 0);
   if (type === 'page') {
     const child = makePage(cur);
     if (!b.html && b.type === 'text') { setType(b, 'page'); b.page = child.id; } else insertAfter(b.id, 'page', '', { page: child.id });
@@ -607,6 +876,7 @@ const pickedBlocks = () => page().blocks.filter(b => picked.has(b.id));
 const pickedText = () => toMarkdown({ title: '', blocks: pickedBlocks() }).replace(/^# .*\n\n/, '');
 
 function deletePicked() {
+  checkpoint();
   const list = page().blocks, first = list.findIndex(b => picked.has(b.id));
   page().blocks = list.filter(b => !picked.has(b.id));
   unpick();
@@ -667,6 +937,7 @@ blocksEl.addEventListener('keydown', e => {
   const b = blk(row.dataset.id);
   if (slashKey(e)) return;
   if (e.target.classList.contains('tb')) return toggleBodyKey(e, b, e.target);
+  if (e.target.tagName === 'TD') return tableKey(e, b, e.target);
   const el = e.target.classList.contains('c') ? e.target : null;
   const i = idx(b.id), list = page().blocks;
 
@@ -684,6 +955,7 @@ blocksEl.addEventListener('keydown', e => {
   if (e.key === 'Enter' && !e.shiftKey) {
     e.preventDefault();
     if (b.type === 'code') return document.execCommand('insertLineBreak');
+    if (b.type === 'math') { const nb = insertAfter(b.id, 'text', '', b.indent ? { indent: b.indent } : undefined); return commit(nb.id, 0); }
     // 예전 방식 토글(안쪽 글이 있는 것)은 안쪽 글로 들어간다
     if (b.type === 'toggle' && b.open && b.body && caret(el) === el.textContent.length) return placeBody(b.id, 0);
     return splitBlock(b, el);
@@ -692,7 +964,12 @@ blocksEl.addEventListener('keydown', e => {
     e.preventDefault();
     sync(b, el);
     if (b.type !== 'text') { setType(b, 'text'); return commit(b.id, 0); }
-    if (b.indent && shiftIndent(b, -1)) return commit(b.id, 0);
+    if (!el.textContent && neighbor(b.id, -1)) {
+      // 빈 줄은 그냥 지운다. 들여쓴 자식들은 그대로 둬서 토글 밖으로 빠지지 않는다
+      const prev = neighbor(b.id, -1);
+      page().blocks.splice(idx(b.id), 1);
+      return commit(prev.id, -1);
+    }
     return mergeUp(b, el);
   }
   if (e.key === 'ArrowUp' && collapsed && at === 0 && neighbor(b.id, -1)) {
@@ -728,6 +1005,17 @@ function wrapCode() {
 
 blocksEl.addEventListener('input', e => {
   const el = e.target;
+  if (el.tagName === 'TD') {
+    const b = blk(el.closest('.blk').dataset.id);
+    b.rows[+el.dataset.r].c[+el.dataset.c] = el.textContent ? clean(el.innerHTML) : '';
+    return save();
+  }
+  if (el.classList?.contains('math-src')) {
+    const b = blk(el.closest('.blk').dataset.id);
+    b.html = el.textContent ? clean(el.innerHTML) : '';
+    renderMath(el.closest('.blk'));
+    return save();
+  }
   if (el.classList?.contains('tb')) {
     const b = blk(el.closest('.blk').dataset.id);
     b.body = el.textContent ? clean(el.innerHTML) : '';
@@ -745,7 +1033,14 @@ blocksEl.addEventListener('input', e => {
 });
 
 blocksEl.addEventListener('paste', e => {
-  if (e.target.closest('.tb')) {
+  checkpoint();
+  const imgs = [...(e.clipboardData?.files || [])].filter(f => f.type.startsWith('image/'));
+  if (imgs.length && !e.clipboardData.getData('text/plain').trim()) {
+    e.preventDefault();
+    const row = e.target.closest('.blk');
+    return insertFiles(imgs, row ? blk(row.dataset.id) : null);
+  }
+  if (e.target.closest('.tb, td, .math-src')) {
     e.preventDefault();
     return document.execCommand('insertText', false, e.clipboardData.getData('text/plain').replace(/\r/g, ''));
   }
@@ -780,6 +1075,7 @@ function inlineMd(s) {
 
 function parseOutline(text, base = 0) {
   const out = [], stack = [];
+  let lastTable = null;
   let fence = null;
   for (const raw of text.split('\n')) {
     const line = raw.replace(/\t/g, '    ');
@@ -811,12 +1107,29 @@ function parseOutline(text, base = 0) {
       if (type === 'todo') checked = /x/i.test(body.match(m[0])[1]);
       body = body.replace(m[0], '');
     }
-    if (type === 'text' && body.startsWith('|')) body = body.replace(/^\||\|$/g, '').split('|').map(c => c.trim()).filter(Boolean).join('  ·  ');
+    if (type === 'text' && body.startsWith('|')) {
+      const cells = body.replace(/^\||\|$/g, '').split('|').map(c => clean(inlineMd(c.trim())));
+      const last = out[out.length - 1];
+      if (last?.type === 'table' && last.open !== false && lastTable === last) last.rows.push({ c: cells });
+      else { lastTable = { id: uid(), type: 'table', html: '', rows: [{ c: cells }], indent }; out.push(lastTable); }
+      continue;
+    }
+    lastTable = null;
+    const img = type === 'text' && body.match(/^!\[[^\]]*\]\(([^)\s]+)\)$/);
+    if (img) { out.push({ id: uid(), type: 'image', html: '', src: /^https?:/i.test(img[1]) ? img[1] : `https://${img[1]}`, indent }); continue; }
     const b = { id: uid(), type, html: clean(inlineMd(body)), indent };
     if (type === 'todo') b.checked = checked;
     if (type === 'toggle') b.open = true;
     if (!indent) delete b.indent;
     out.push(b);
+  }
+  // 표 칸 수를 맞추고, 들여쓰기 0은 빼둔다
+  for (const b of out) {
+    if (b.type === 'table') {
+      const n = Math.max(...b.rows.map(r => r.c.length));
+      b.rows.forEach(r => { while (r.c.length < n) r.c.push(''); });
+    }
+    if (!b.indent) delete b.indent;
   }
   return out;
 }
@@ -854,7 +1167,14 @@ blocksEl.addEventListener('click', e => {
     $('main').scrollTop += $(`.blk[data-id="${b.id}"]`).getBoundingClientRect().top - y;
     return;
   }
-  if (b.type === 'divider') row.focus();
+  const tbl = e.target.closest('[data-tbl]');
+  if (tbl) {
+    const td = row.querySelector('td:focus') || null;
+    return tableEdit(b, tbl.dataset.tbl, td ? +td.dataset.r : undefined, td ? +td.dataset.c : b.rows[0].c.length - 1);
+  }
+  if (e.target.closest('.math-out')) return place(b.id, -1);
+  if (b.type === 'file' && e.target.closest('.file-blk.missing')) { e.preventDefault(); return flash('파일을 불러오지 못했어요'); }
+  if (['divider', 'image'].includes(b.type)) row.focus();
 });
 
 document.addEventListener('focusout', e => {
@@ -880,7 +1200,9 @@ blocksEl.addEventListener('dragstart', e => {
   e.dataTransfer.setData('text/plain', '');
   e.dataTransfer.setDragImage(row, 20, 14);
 });
+const hasFiles = e => [...(e.dataTransfer?.types || [])].includes('Files');
 blocksEl.addEventListener('dragover', e => {
+  if (!dragId && hasFiles(e)) return e.preventDefault();
   if (!dragId) return;
   e.preventDefault();
   clearDrop();
@@ -890,6 +1212,11 @@ blocksEl.addEventListener('dragover', e => {
   row.classList.add(e.clientY < r.top + r.height / 2 ? 'drop-before' : 'drop-after');
 });
 blocksEl.addEventListener('drop', e => {
+  if (!dragId && e.dataTransfer.files.length) {
+    e.preventDefault();
+    const row = e.target.closest('.blk');
+    return insertFiles([...e.dataTransfer.files], row ? blk(row.dataset.id) : page().blocks[page().blocks.length - 1]);
+  }
   if (!dragId) return;
   e.preventDefault();
   const row = $('.drop-before, .drop-after');
@@ -953,6 +1280,25 @@ $('#icon').onclick = e => {
     save();
     renderPage();
     renderTree();
+  });
+};
+
+// 마지막으로 만진 블록 아래에 넣는다
+let lastBlockId = null;
+document.addEventListener('focusin', e => { const r = e.target.closest?.('#blocks .blk'); if (r) lastBlockId = r.dataset.id; });
+const INSERT = [['image', '🖼', '갤러리', '이미지'], ['file', '📎', '파일', ''], ['-'], ['code', '{ }', '코드 블록', ''], ['math', 'ƒx', '공식', ''],
+  ['-'], ['todo', '☑', '할 일', ''], ['toggle', '▸', '토글', ''], ['table', '▦', '표', ''], ['-'], ['divider', '✂', '페이지 나누기', '']];
+$('#insertBtn').onclick = e => {
+  openPop(INSERT.map(([v, ico, label]) => v === '-' ? '<hr>' : `<button class="mi compact" data-v="${v}"><span class="ins-ico">${ico}</span>${label}</button>`).join(''), e.currentTarget, v => {
+    const list = page().blocks;
+    const b = (lastBlockId && list.find(x => x.id === lastBlockId)) || list[list.length - 1];
+    if (v === 'image') return pickFiles('image/*', b);
+    if (v === 'file') return pickFiles('', b);
+    if (v === 'table') return placeNew([newTable()], b, 0);
+    if (v === 'divider') return placeNew([{ id: uid(), type: 'divider', html: '' }, { id: uid(), type: 'text', html: '' }], b, 0);
+    const nb = { id: uid(), type: v, html: '' };
+    if (v === 'toggle') nb.open = true;
+    placeNew([nb], b, 0);
   });
 };
 
@@ -1032,6 +1378,10 @@ function toMarkdown(p) {
       case 'toggle': return [`- ▸ ${t}`, ...md(b.body || '').split('\n').filter(Boolean).map(l => `  ${l}`)].join('\n');
       case 'code': return `\`\`\`\n${t}\n\`\`\``;
       case 'divider': return '---';
+      case 'image': return b.src?.startsWith('file:') ? '🖼 (이미지)' : `![](${b.src})`;
+      case 'file': return `📎 ${b.name || '파일'}`;
+      case 'math': return `$$ ${t} $$`;
+      case 'table': return (b.rows || []).map((r, i) => `| ${r.c.map(md).join(' | ')} |` + (i ? '' : `\n|${r.c.map(() => ' --- ').join('|')}|`)).join('\n');
       case 'page': return `- 📄 ${db.pages[b.page]?.title || '삭제된 페이지'}`;
       default: return t;
     }
@@ -1127,11 +1477,12 @@ function renderAll() {
 
 // 전체 페이지 카드에 들어갈 작은 미리보기
 function miniPreview(p) {
-  const rows = p.blocks.filter(b => b.html || b.type === 'divider').slice(0, 16).map(b => {
+  const rows = p.blocks.filter(b => b.html || ['divider', 'image', 'file', 'table'].includes(b.type)).slice(0, 16).map(b => {
     const mark = b.type === 'todo' ? `<i class="mk-todo${b.checked ? ' on' : ''}"></i>` : b.type === 'toggle' ? '<i>▾</i>'
       : b.type === 'bullet' ? '<i>•</i>' : '';
     const text = esc(b.html.replace(/<br>/g, ' ').replace(/<[^>]+>/g, '').replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>'));
     if (b.type === 'divider') return '<span class="ml hr"></span>';
+    if (['image', 'file', 'table', 'math'].includes(b.type)) return `<span class="ml" style="padding-left:${(b.indent || 0) * 9}px">${{ image: '🖼 이미지', file: `📎 ${esc(b.name || '파일')}`, table: '▦ 표', math: 'ƒx 공식' }[b.type]}</span>`;
     return `<span class="ml t-${b.type}${b.checked ? ' done' : ''}" style="padding-left:${(b.indent || 0) * 9}px">${mark}${text}</span>`;
   }).join('');
   return rows || '<span class="ml empty">빈 페이지</span>';
@@ -1184,6 +1535,8 @@ function rerender() {
 
 window.memoApp = {
   data: () => db,
+  fileIds: () => Object.values(db.pages).flatMap(p => p.blocks).filter(b => b.src?.startsWith('file:')).map(b => b.src.slice(5)),
+  fileData: fileGet,
   status: flash,
   // 다른 계정이 쓰던 기기라면 이 기기의 노트를 비우고 시작한다
   claim(uid) {
@@ -1225,6 +1578,7 @@ function route() {
   const id = location.hash.match(/^#\/p\/(\w+)/)?.[1];
   if (!db.pages[id]) return go(db.root[0]);
   cur = id;
+  if (hist.page !== cur) histReset();
   // 열린 페이지의 상위 페이지는 펼쳐 둔다
   pathOf(id).slice(0, -1).forEach(p => { p.open = true; });
   renderTree();

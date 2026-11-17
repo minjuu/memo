@@ -277,3 +277,36 @@ main { border-radius: 0; box-shadow: none; border-left: 1px solid var(--line); }
 :root[data-theme="dark"] .tg { filter: invert(1); }
 @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .tg { filter: invert(1); } }
 img.avatar { object-fit: cover; border-radius: 50%; background: var(--hover); }
+
+/* 삽입 메뉴 */
+.ins { background: var(--ink) !important; color: var(--panel) !important; border: 0 !important; font-size: 18px; font-weight: 700; }
+.ins-ico { display: inline-block; width: 26px; color: var(--muted); font-size: 13px; font-weight: 700; text-align: center; font-family: 'Apple Color Emoji', 'Segoe UI Emoji', ui-monospace, sans-serif; }
+
+/* 이미지 · 파일 */
+.media { flex: 1; min-width: 0; margin: 6px 0; }
+.media img { display: block; max-width: 100%; max-height: 640px; border-radius: 8px; }
+.media.missing img { display: none; }
+.media.missing::after { content: '이미지를 불러오지 못했어요'; display: block; padding: 14px; border-radius: 8px; background: var(--callout); color: var(--faint); font-size: 14px; }
+.file-blk { display: flex; align-items: center; gap: 8px; margin: 4px 0; padding: 10px 14px; border: 1px solid var(--line); border-radius: 10px; color: var(--ink); text-decoration: none; }
+.file-blk:hover { background: var(--hover); }
+.file-blk small { color: var(--faint); }
+.file-blk.missing { opacity: .5; }
+.t-image:focus, .t-file:focus, .t-table:focus { background: none; box-shadow: 0 0 0 2px var(--sel); }
+
+/* 공식 */
+.math-wrap { flex: 1; min-width: 0; }
+.math-src { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 14px; color: var(--muted); background: var(--code); border-radius: 6px; padding: 6px 10px; }
+.t-math:not(:focus-within) .math-src:not(:empty) { display: none; }
+.math-out { padding: 4px 0; overflow-x: auto; cursor: text; }
+.math-out:empty { display: none; }
+
+/* 표 */
+.tbl-wrap { flex: 1; min-width: 0; overflow-x: auto; padding: 4px 0; }
+.tbl { border-collapse: collapse; min-width: 60%; font-size: 15px; }
+.tbl td { min-width: 90px; padding: 7px 10px; border: 1px solid var(--line); outline: none; vertical-align: top; white-space: pre-wrap; }
+.tbl tr:first-child td { background: var(--side); font-weight: 600; }
+.tbl td:focus { box-shadow: inset 0 0 0 2px var(--check); }
+.tbl-tools { display: flex; gap: 4px; margin-top: 4px; opacity: 0; transition: opacity .12s; }
+.t-table:hover .tbl-tools, .t-table:focus-within .tbl-tools { opacity: 1; }
+.tbl-tools button { padding: 2px 8px; border-radius: 6px; color: var(--muted); font-size: 12px; }
+.tbl-tools button:hover { background: var(--hover); }
