@@ -43,22 +43,30 @@ function makePage(parent, title = '', icon = '📄', blocks) {
 function seed() {
   db = { root: [], pages: {} };
   const b = (type, html, extra) => ({ id: uid(), type, html, ...extra });
-  const home = makePage(null, '시작하기', '👋', [
-    b('callout', 'Tidy에 오신 걸 환영해요. 쓴 내용은 자동으로 저장돼요.'),
-    b('h2', '이렇게 써보세요'),
-    b('todo', '빈 줄에서 <b>/</b> 를 입력해 블록 종류 고르기'),
-    b('todo', '<code># </code> 제목, <code>- </code> 목록, <code>1. </code> 번호, <code>[] </code> 할 일, <code>&gt; </code> 인용'),
-    b('todo', '글자를 고르고 <b>⌘B</b> 굵게, <b>⌘I</b> 기울임, <b>⌘U</b> 밑줄'),
-    b('todo', '블록 왼쪽 ⋮⋮ 를 끌어서 순서 바꾸기, 눌러서 메뉴 열기'),
-    b('divider', ''),
-    b('h2', '알아두기'),
-    b('bullet', '왼쪽 목록의 <b>+</b> 로 페이지 안에 페이지를 만들 수 있어요.'),
-    b('bullet', '왼쪽 위 <b>Google로 로그인</b>하면 다른 기기에서도 이어서 쓸 수 있어요.'),
-  ]);
-  makePage(home.id, '할 일', '✅', [
-    b('todo', '장보기', { checked: true }),
-    b('todo', '운동 30분'),
-    b('todo', ''),
+  const tg = (title, items) => [b('toggle', title, { open: true }), ...items.map(t => b('bullet', t, { indent: 1 }))];
+  makePage(null, 'Tidy 시작하기', '', [
+    b('text', '생각을 가볍게 적고, 깔끔하게 정리하는 노트예요.'),
+    b('text', ''),
+    ...tg('블록 만들기', [
+      '빈 줄에서 <b>/</b> 를 누르면 블록 메뉴가 열려요.',
+      '위쪽 <b>＋</b> 버튼으로 이미지, 표, 공식을 넣을 수 있어요.',
+      '블록 왼쪽 ⋮⋮ 를 끌어서 순서를 바꿔요.',
+    ]),
+    ...tg('빠르게 쓰기', [
+      '<code># </code> 제목 · <code>- </code> 목록 · <code>[] </code> 할 일 · <code>&gt; </code> 인용',
+      '<b>Tab</b> 들여쓰기 · <b>Shift+Tab</b> 내어쓰기',
+      '다른 앱에서 복사한 목록과 할 일도 그대로 붙여넣어져요.',
+    ]),
+    ...tg('단축키', [
+      '<b>⌘A</b> 두 번 누르면 페이지 전체 선택',
+      '<b>⌘Z</b> 되돌리기 · <b>⇧⌘Z</b> 다시 하기',
+      '<b>⌘K</b> 페이지 검색 · <b>⌘\\</b> 사이드바 접기',
+    ]),
+    ...tg('저장과 공유', [
+      '쓰는 대로 자동 저장돼요.',
+      '<b>구글로 로그인</b>하면 모든 기기에서 이어서 써요.',
+      '오른쪽 위 <b>공유</b>에서 PDF, Word, Markdown으로 내보내요.',
+    ]),
   ]);
   return db;
 }

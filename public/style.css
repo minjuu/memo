@@ -391,3 +391,9 @@ img.avatar { object-fit: cover; border-radius: 50%; background: var(--hover); }
   .doc { max-width: none; padding: 0 !important; }
   .blk { break-inside: avoid; }
 }
+
+/* 아이콘이 없으면 제목을 왼쪽에 붙이고, 추가 버튼은 바깥쪽에 띄운다 */
+.doc-head { position: relative; }
+#icon:empty { position: absolute; left: -32px; top: 50%; transform: translateY(-50%); }
+/* 인라인 코드는 차분한 회색 */
+.c code { color: var(--ink); background: var(--hover); }
