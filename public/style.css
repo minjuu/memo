@@ -333,3 +333,9 @@ img.avatar { object-fit: cover; border-radius: 50%; background: var(--hover); }
 .side-foot { padding-top: 6px; }
 .side-foot .side-act { color: var(--ink); font-size: 14px; }
 .si svg { display: block; margin: auto; }
+
+/* 구글 로그인 버튼 */
+.login { gap: 10px; height: 44px; padding: 0 14px; border: 0; border-radius: 10px; background: #f1f2f4; color: #191f28; font-size: 15px; font-weight: 600; }
+.login:hover { background: #e7e9ec; }
+:root[data-theme="dark"] .login { background: #2b2b2b; color: #e6e6e4; }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .login { background: #2b2b2b; color: #e6e6e4; } }

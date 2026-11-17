@@ -94,6 +94,8 @@ if (!firebaseConfig.apiKey) {
       }
     },
     async logout() {
+      // 직접 로그아웃할 때만 이 기기의 노트를 비운다
+      localStorage.setItem('note.logout', '1');
       clearTimeout(timer);
       await flush();
       await auth.signOut(a);
@@ -126,6 +128,7 @@ if (!firebaseConfig.apiKey) {
     syncedRoot = null;
     if (!u) return app.signedOut();
     app.claim(u.uid);
+    app.signedIn(u);
     app.status('불러오는 중');
     try {
       await load();
@@ -154,5 +157,4 @@ if (!firebaseConfig.apiKey) {
       console.error(e);
     }
   });
-  app.signedIn(null);
 }
