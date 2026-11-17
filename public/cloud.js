@@ -1,5 +1,5 @@
 // 로그인하면 노트를 Firestore(users/{uid}, users/{uid}/pages/{pageId})와 동기화한다.
-import { firebaseConfig } from './firebase-config.js?v=1';
+import { firebaseConfig } from './firebase-config.js?v=2';
 
 const app = window.memoApp;
 
