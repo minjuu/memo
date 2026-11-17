@@ -401,3 +401,4 @@ img.avatar { object-fit: cover; border-radius: 50%; background: var(--hover); }
 /* 정렬 선택: 화살표를 직접 그려서 오른쪽 여백을 둔다 */
 #allSort { -webkit-appearance: none; appearance: none; padding: 8px 36px 8px 12px; cursor: pointer;
   background: var(--bg) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20'%3E%3Cpath d='M6 8l4 4 4-4' fill='none' stroke='%23787774' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E") right 12px center / 16px no-repeat; }
+.all-title { margin-bottom: 14px; }
