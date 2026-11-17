@@ -1,4 +1,4 @@
-// 모아노트: 페이지 트리 + 블록 편집기. 데이터는 이 브라우저의 localStorage에만 저장한다.
+// Memo: 페이지 트리 + 블록 편집기. 이 브라우저의 localStorage에 저장하고, 로그인하면 cloud.js가 Firestore와 동기화한다.
 const KEY = 'note.v1';
 const $ = (s, el = document) => el.querySelector(s);
 const uid = () => Math.random().toString(36).slice(2, 10);
@@ -37,7 +37,7 @@ function seed() {
   db = { root: [], pages: {} };
   const b = (type, html, extra) => ({ id: uid(), type, html, ...extra });
   const home = makePage(null, '시작하기', '👋', [
-    b('callout', '모아노트에 오신 걸 환영해요. 쓴 내용은 이 브라우저에 자동으로 저장돼요.'),
+    b('callout', 'Memo에 오신 걸 환영해요. 쓴 내용은 자동으로 저장돼요.'),
     b('h2', '이렇게 써보세요'),
     b('todo', '빈 줄에서 <b>/</b> 를 입력해 블록 종류 고르기'),
     b('todo', '<code># </code> 제목, <code>- </code> 목록, <code>1. </code> 번호, <code>[] </code> 할 일, <code>&gt; </code> 인용'),
@@ -46,7 +46,7 @@ function seed() {
     b('divider', ''),
     b('h2', '알아두기'),
     b('bullet', '왼쪽 목록의 <b>+</b> 로 페이지 안에 페이지를 만들 수 있어요.'),
-    b('bullet', '다른 기기와는 동기화되지 않아요. 왼쪽 아래 <b>백업 내보내기</b>로 파일을 받아두세요.'),
+    b('bullet', '왼쪽 위 <b>Google로 로그인</b>하면 다른 기기에서도 이어서 쓸 수 있어요.'),
   ]);
   makePage(home.id, '할 일', '✅', [
     b('todo', '장보기', { checked: true }),
@@ -74,10 +74,11 @@ function save() {
   saveTimer = setTimeout(() => {
     try {
       localStorage.setItem(KEY, JSON.stringify(db));
-      flash('저장됨');
+      if (!window.cloud?.user) flash('저장됨');
     } catch {
       flash('저장하지 못했어요');
     }
+    window.cloud?.schedule();
   }, 300);
 }
 function flash(msg) {
@@ -184,7 +185,11 @@ $('#newPage').onclick = () => { const p = makePage(null); save(); go(p.id); };
 
 function renderPage() {
   const p = page();
-  document.title = `${p.title || '제목 없음'} · 모아노트`;
+  $('.doc').hidden = false;
+  $('#all').hidden = true;
+  $('#moreBtn').hidden = false;
+  $('.doc').classList.toggle('full', !!p.full);
+  document.title = `${p.title || '제목 없음'} · Memo`;
   $('#icon').textContent = p.icon;
   $('#title').textContent = p.title;
   renderCrumbs();
@@ -697,9 +702,11 @@ $('#icon').onclick = e => {
 $('#moreBtn').onclick = e => {
   openPop(`<button class="mi compact" data-v="md">마크다운으로 저장</button>
     <button class="mi compact" data-v="sub">하위 페이지 추가</button>
+    <button class="mi compact" data-v="full">${page().full ? '기본 너비로 보기' : '전체 너비로 보기'}</button>
     <button class="mi compact danger" data-v="del">페이지 삭제</button>`, e.currentTarget, v => {
     if (v === 'md') return download(`${page().title || '제목 없음'}.md`, toMarkdown(page()), 'text/markdown');
     if (v === 'sub') { const p = makePage(cur); insertAfter(null, 'page', '', { page: p.id }); save(); return go(p.id); }
+    if (v === 'full') { page().full = !page().full; save(); return $('.doc').classList.toggle('full', page().full); }
     if (v === 'del') removePageWithConfirm(cur);
   });
 };
@@ -710,7 +717,7 @@ const titleEl = $('#title');
 titleEl.addEventListener('input', () => {
   page().title = titleEl.textContent.replace(/\n/g, '');
   if (!page().title) titleEl.innerHTML = '';
-  document.title = `${page().title || '제목 없음'} · 모아노트`;
+  document.title = `${page().title || '제목 없음'} · Memo`;
   save();
   renderTree();
   renderCrumbs();
@@ -774,7 +781,7 @@ function toMarkdown(p) {
 $('#exportBtn').onclick = () => {
   const d = new Date();
   const stamp = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
-  download(`모아노트-백업-${stamp}.json`, JSON.stringify(db, null, 2), 'application/json');
+  download(`Memo-백업-${stamp}.json`, JSON.stringify(db, null, 2), 'application/json');
 };
 
 $('#importFile').onchange = async e => {
@@ -817,17 +824,122 @@ $('#menuBtn').onclick = () => setSide(true);
 $('#closeSide').onclick = () => setSide(false);
 $('#scrim').onclick = () => setSide(false);
 
+/* ---------- 전체 페이지 ---------- */
+
+const allState = { q: '', sort: 'updated' };
+
+function ago(t) {
+  if (!t) return '';
+  const m = Math.round((Date.now() - t) / 60000);
+  if (m < 1) return '방금';
+  if (m < 60) return `${m}분 전`;
+  const h = Math.round(m / 60);
+  if (h < 24) return `${h}시간 전`;
+  if (h < 48) return '어제';
+  const d = new Date(t);
+  return `${d.getFullYear() === new Date().getFullYear() ? '' : `${d.getFullYear()}년 `}${d.getMonth() + 1}월 ${d.getDate()}일`;
+}
+
+function renderAll() {
+  document.title = '전체 페이지 · Memo';
+  $('.doc').hidden = true;
+  $('#all').hidden = false;
+  $('#moreBtn').hidden = true;
+  $('#crumbs').innerHTML = '<a href="#/all">전체 페이지</a>';
+  $('#allSearch').value = allState.q;
+  $('#allSort').value = allState.sort;
+  renderAllList();
+  $('main').scrollTop = 0;
+}
+
+function renderAllList() {
+  const q = allState.q.trim().toLowerCase();
+  let list = Object.values(db.pages).filter(p => !q || (p.title || '제목 없음').toLowerCase().includes(q) ||
+    p.blocks.some(b => b.html && b.html.replace(/<[^>]+>/g, '').toLowerCase().includes(q)));
+  list.sort(allState.sort === 'title' ? (a, b) => (a.title || '제목 없음').localeCompare(b.title || '제목 없음', 'ko')
+    : (a, b) => (b.updated || 0) - (a.updated || 0));
+  $('#allCount').textContent = `${list.length}개`;
+  $('#allList').innerHTML = list.length ? list.map(p => {
+    const where = pathOf(p.id).slice(0, -1).map(x => x.title || '제목 없음').join(' / ');
+    const text = p.blocks.map(b => b.html.replace(/<[^>]+>/g, '')).filter(Boolean).join(' ').slice(0, 80);
+    return `<a class="all-row" href="#/p/${p.id}">
+      <span class="all-ico emoji">${esc(p.icon)}</span>
+      <span class="all-txt"><b>${esc(p.title || '제목 없음')}</b><small>${esc(where ? `${where} · ${text}` : text) || '빈 페이지'}</small></span>
+      <time>${ago(p.updated)}</time></a>`;
+  }).join('') : '<p class="empty-tree">찾는 페이지가 없어요</p>';
+}
+
+$('#allSearch').addEventListener('input', e => { allState.q = e.target.value; renderAllList(); });
+$('#allSort').addEventListener('change', e => { allState.sort = e.target.value; renderAllList(); });
+
+/* ---------- 로그인 · 동기화 (cloud.js와 연결) ---------- */
+
+const OWNER = 'note.owner';
+function renderAccount(user) {
+  const el = $('#account');
+  if (!window.cloud?.enabled) { el.hidden = true; return; }
+  el.hidden = false;
+  el.innerHTML = user
+    ? `<div class="acct"><span class="avatar">${esc((user.displayName || user.email || '?')[0])}</span><span class="acct-name">${esc(user.displayName || user.email)}</span><button id="logoutBtn" class="ti-btn" title="로그아웃" aria-label="로그아웃">⎋</button></div>`
+    : '<button id="loginBtn" class="login"><span class="g">G</span> Google로 로그인</button><p class="login-note">로그인하면 여러 기기에서 이어서 써요</p>';
+  $('#loginBtn')?.addEventListener('click', () => window.cloud.login().catch(() => flash('로그인하지 못했어요')));
+  $('#logoutBtn')?.addEventListener('click', async () => {
+    if (!confirm('로그아웃할까요? 이 기기에 있는 노트는 지워지고, 다시 로그인하면 불러와요.')) return;
+    await window.cloud.logout();
+  });
+}
+
+function rerender() {
+  if (location.hash === '#/all') return route();
+  if (!db.pages[cur]) return go(db.root[0]);
+  renderTree();
+  renderPage();
+}
+
+window.memoApp = {
+  data: () => db,
+  status: flash,
+  // 다른 계정이 쓰던 기기라면 이 기기의 노트를 비우고 시작한다
+  claim(uid) {
+    const owner = localStorage.getItem(OWNER);
+    if (owner && owner !== uid) { seed(); rerender(); }
+    localStorage.setItem(OWNER, uid);
+  },
+  replace(d) {
+    Object.values(d.pages).forEach(p => p.blocks.forEach(b => { b.html = clean(b.html || ''); }));
+    db = d;
+    try { localStorage.setItem(KEY, JSON.stringify(db)); } catch {}
+    rerender();
+  },
+  signedIn: renderAccount,
+  signedOut() {
+    if (localStorage.getItem(OWNER)) {
+      localStorage.removeItem(OWNER);
+      seed();
+      try { localStorage.setItem(KEY, JSON.stringify(db)); } catch {}
+      rerender();
+    }
+    renderAccount(null);
+  },
+};
+renderAccount(null);
+
 /* ---------- 라우팅 ---------- */
 
 function route() {
+  closeSlash();
+  closePop();
+  setSide(false);
+  if (location.hash === '#/all') {
+    cur = null;
+    renderTree();
+    return renderAll();
+  }
   const id = location.hash.match(/^#\/p\/(\w+)/)?.[1];
   if (!db.pages[id]) return go(db.root[0]);
   cur = id;
   // 열린 페이지의 상위 페이지는 펼쳐 둔다
   pathOf(id).slice(0, -1).forEach(p => { p.open = true; });
-  closeSlash();
-  closePop();
-  setSide(false);
   renderTree();
   renderPage();
 }

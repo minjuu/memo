@@ -142,3 +142,33 @@ main { flex: 1; min-width: 0; overflow-y: auto; }
   .hd .add { display: none; }
   .ti-btn { opacity: 1; }
 }
+
+/* 계정 */
+#account { padding: 0 2px 4px; }
+.login { display: flex; align-items: center; justify-content: center; gap: 8px; width: 100%; padding: 8px 10px; border: 1px solid var(--line); border-radius: 8px; background: var(--bg); font-size: 14px; font-weight: 600; }
+.login:hover { background: var(--hover); }
+.login .g { font-weight: 800; color: #4285f4; }
+.login-note { margin: 6px 4px 2px; font-size: 12px; color: var(--faint); text-align: center; }
+.acct { display: flex; align-items: center; gap: 8px; padding: 4px 6px; border-radius: 6px; font-size: 14px; }
+.acct:hover .ti-btn { opacity: 1; }
+.avatar { flex: none; display: grid; place-items: center; width: 24px; height: 24px; border-radius: 6px; background: var(--ink); color: var(--bg); font-size: 12px; font-weight: 700; text-transform: uppercase; }
+.acct-name { flex: 1; min-width: 0; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+.all-link { text-decoration: none; }
+
+/* 전체 너비 */
+.doc.full { max-width: none; }
+
+/* 전체 페이지 */
+.all-title { margin: 0 0 16px; font-size: 32px; font-weight: 800; letter-spacing: -0.6px; }
+#allCount { font-size: 16px; font-weight: 500; color: var(--faint); }
+.all-tools { display: flex; gap: 8px; margin-bottom: 8px; }
+#allSearch { flex: 1; min-width: 0; padding: 8px 12px; border: 1px solid var(--line); border-radius: 8px; background: var(--bg); color: var(--ink); font: inherit; font-size: 14px; }
+#allSort { padding: 8px 10px; border: 1px solid var(--line); border-radius: 8px; background: var(--bg); color: var(--ink); font: inherit; font-size: 14px; }
+.all-row { display: flex; align-items: center; gap: 12px; padding: 10px 8px; border-bottom: 1px solid var(--line); border-radius: 6px; color: var(--ink); text-decoration: none; }
+.all-row:hover { background: var(--hover); }
+.all-ico { flex: none; width: 28px; font-size: 22px; text-align: center; }
+.all-txt { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+.all-txt b { font-weight: 600; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+.all-txt small { font-size: 13px; color: var(--muted); overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+.all-row time { flex: none; font-size: 13px; color: var(--faint); }
+#all { padding-bottom: 60px; }
