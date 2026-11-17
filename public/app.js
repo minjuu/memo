@@ -492,9 +492,84 @@ function slashKey(e) {
 
 const blocksEl = $('#blocks');
 
+/* ---------- 블록 여러 개 선택 (⌘A 두 번) ---------- */
+
+let picked = null; // 선택된 블록 id 묶음
+blocksEl.tabIndex = -1;
+
+function pickBlocks(ids) {
+  picked = new Set(ids);
+  document.querySelectorAll('#blocks .blk').forEach(r => r.classList.toggle('picked', picked.has(r.dataset.id)));
+  getSelection().removeAllRanges();
+  closeSlash();
+  blocksEl.focus();
+}
+function unpick() {
+  if (!picked) return;
+  picked = null;
+  document.querySelectorAll('.blk.picked').forEach(r => r.classList.remove('picked'));
+}
+const pickedBlocks = () => page().blocks.filter(b => picked.has(b.id));
+const pickedText = () => toMarkdown({ title: '', blocks: pickedBlocks() }).replace(/^# .*\n\n/, '');
+
+function deletePicked() {
+  const list = page().blocks, first = list.findIndex(b => picked.has(b.id));
+  page().blocks = list.filter(b => !picked.has(b.id));
+  unpick();
+  if (!page().blocks.length) page().blocks.push({ id: uid(), type: 'text', html: '' });
+  const next = page().blocks[Math.max(0, first - 1)];
+  commit(next.id, first ? -1 : 0);
+}
+
+document.addEventListener('keydown', e => {
+  const mod = e.metaKey || e.ctrlKey, k = e.key.toLowerCase();
+  // 편집 중이 아닐 때 ⌘A는 페이지의 블록 전체를 고른다
+  if (!picked && mod && k === 'a' && document.activeElement === document.body && cur) {
+    e.preventDefault();
+    return pickBlocks(page().blocks.map(b => b.id));
+  }
+  if (!picked) return;
+  if (e.key === 'Backspace' || e.key === 'Delete') { e.preventDefault(); return deletePicked(); }
+  if (mod && (k === 'c' || k === 'x')) {
+    e.preventDefault();
+    copyText(pickedText()).then(ok => flash(ok ? '복사했어요' : '복사하지 못했어요'));
+    if (k === 'x') deletePicked();
+    return;
+  }
+  if (mod && k === 'a') { e.preventDefault(); return; }
+  if (e.key === 'Escape') return unpick();
+  if (!mod && e.key.length === 1) unpick();
+});
+document.addEventListener('mousedown', e => { if (picked && !popEl.contains(e.target)) unpick(); });
+
+async function copyText(text) {
+  try {
+    await navigator.clipboard.writeText(text);
+    return true;
+  } catch {
+    const el = document.createElement('textarea');
+    el.value = text;
+    document.body.append(el);
+    el.select();
+    const ok = document.execCommand('copy');
+    el.remove();
+    blocksEl.focus();
+    return ok;
+  }
+}
+
 blocksEl.addEventListener('keydown', e => {
   const row = e.target.closest('.blk');
   if (!row) return;
+  // ⌘A: 처음엔 이 블록 글자 전체, 이미 다 골라져 있으면 페이지의 블록 전체
+  if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'a' && e.target.classList.contains('c')) {
+    const len = e.target.textContent.length;
+    if (!len || getSelection().toString().length >= len) {
+      e.preventDefault();
+      pickBlocks(page().blocks.map(b => b.id));
+    }
+    return;
+  }
   const b = blk(row.dataset.id);
   if (slashKey(e)) return;
   const el = e.target.classList.contains('c') ? e.target : null;
@@ -939,6 +1014,7 @@ renderAccount(null);
 /* ---------- 라우팅 ---------- */
 
 function route() {
+  unpick();
   closeSlash();
   closePop();
   setSide(false);

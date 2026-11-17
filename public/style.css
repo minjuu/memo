@@ -177,3 +177,7 @@ main { flex: 1; min-width: 0; overflow-y: auto; }
 .side-collapsed #side { display: none; }
 @media (min-width: 761px) { body:not(.side-collapsed) #menuBtn { display: none; } }
 @media (max-width: 760px) { .side-collapsed #side { display: flex; } }
+
+/* 여러 블록 선택 */
+#blocks:focus { outline: none; }
+.blk.picked { background: var(--sel); }
