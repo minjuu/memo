@@ -1320,6 +1320,27 @@ $('#insertBtn').onclick = e => {
   });
 };
 
+// 왼쪽 아래 설정: 백업, 테마, 로그인/로그아웃
+async function logout() {
+  if (!confirm('로그아웃할까요? 이 기기에 있는 노트는 지워지고, 다시 로그인하면 불러와요.')) return;
+  await window.cloud.logout();
+}
+$('#settingsBtn').onclick = e => {
+  const user = window.cloud?.user, dark = themeLabel();
+  openPop(`${user ? `<div class="pop-h">${esc(user.email || '')}</div>` : ''}
+    <button class="mi compact" data-v="export">백업 내보내기</button>
+    <button class="mi compact" data-v="import">백업 가져오기</button>
+    <button class="mi compact" data-v="theme">${dark ? '라이트 모드' : '다크 모드'}</button>
+    ${window.cloud?.enabled ? `<hr>${user ? '<button class="mi compact danger" data-v="logout">로그아웃</button>' : '<button class="mi compact" data-v="login">Google로 로그인</button>'}` : ''}`,
+  e.currentTarget, v => {
+    if (v === 'export') return $('#exportBtn').click();
+    if (v === 'import') return $('#importFile').click();
+    if (v === 'theme') return $('#themeBtn').click();
+    if (v === 'login') return window.cloud.login().catch(() => flash('로그인하지 못했어요'));
+    if (v === 'logout') return logout();
+  });
+};
+
 $('#moreBtn').onclick = e => {
   openPop(`<button class="mi compact" data-v="md">마크다운으로 저장</button>
     <button class="mi compact" data-v="sub">하위 페이지 추가</button>
@@ -1533,15 +1554,12 @@ function renderAccount(user) {
   if (!window.cloud?.enabled) { el.hidden = true; return; }
   el.hidden = false;
   el.innerHTML = user
-    ? `<div class="acct">${user.photoURL
+    ? `<div class="acct" title="${esc(user.email || '')}">${user.photoURL
         ? `<img class="avatar" src="${esc(user.photoURL)}" alt="" referrerpolicy="no-referrer" onerror="this.replaceWith(Object.assign(document.createElement('span'),{className:'avatar',textContent:'${esc((user.displayName || user.email || '?')[0])}'}))">`
-        : `<span class="avatar">${esc((user.displayName || user.email || '?')[0])}</span>`}<span class="acct-name">${esc(user.displayName || user.email)}</span><button id="logoutBtn" class="ti-btn" title="로그아웃" aria-label="로그아웃">⎋</button></div>`
+        : `<span class="avatar">${esc((user.displayName || user.email || '?')[0])}</span>`}<span class="acct-name">${esc(user.displayName || user.email)}</span></div>`
     : '<button id="loginBtn" class="login"><span class="g">G</span> Google로 로그인</button><p class="login-note">로그인하면 여러 기기에서 이어서 써요</p>';
   $('#loginBtn')?.addEventListener('click', () => window.cloud.login().catch(() => flash('로그인하지 못했어요')));
-  $('#logoutBtn')?.addEventListener('click', async () => {
-    if (!confirm('로그아웃할까요? 이 기기에 있는 노트는 지워지고, 다시 로그인하면 불러와요.')) return;
-    await window.cloud.logout();
-  });
+
 }
 
 function rerender() {

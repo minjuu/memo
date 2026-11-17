@@ -324,3 +324,12 @@ img.avatar { object-fit: cover; border-radius: 50%; background: var(--hover); }
 .side-top .icon-btn { width: 28px; height: 28px; border: 0; background: transparent; color: var(--muted); }
 .side-top .icon-btn:hover, .side-top .icon-btn.on { background: #0000000d; color: var(--ink); }
 #search { margin-top: 0; }
+
+/* 제목·아이콘 조금 작게 / 설정 버튼 */
+#icon { font-size: 44px; }
+#title { font-size: 28px; margin: 6px 0 12px; }
+.doc { padding-top: 28px; }
+@media (max-width: 760px) { #icon { font-size: 38px; } #title { font-size: 25px; } }
+.side-foot { padding-top: 6px; }
+.side-foot .side-act { color: var(--ink); font-size: 14px; }
+.si svg { display: block; margin: auto; }
