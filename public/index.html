@@ -7,7 +7,7 @@
 <meta name="description" content="페이지를 만들고 블록으로 정리하는 메모장">
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%2337352f'/%3E%3Cpath d='M10 9h12M10 16h12M10 23h7' stroke='white' stroke-width='3' stroke-linecap='round'/%3E%3C/svg%3E">
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css">
-<link rel="stylesheet" href="style.css?v=17">
+<link rel="stylesheet" href="style.css?v=18">
 <script>try { const t = localStorage.getItem('note.theme'); if (t) document.documentElement.dataset.theme = t; } catch {}</script>
 </head>
 <body>
@@ -44,6 +44,7 @@
       <button id="insertBtn" class="icon-btn ins" aria-label="블록 넣기" title="블록 넣기"><svg viewBox="0 0 20 20" width="16" height="16" aria-hidden="true"><path d="M10 4.5v11M4.5 10h11" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" fill="none"/></svg></button>
       <nav id="crumbs"></nav>
       <span id="saved"></span>
+      <button id="shareBtn" class="share-btn" aria-label="공유 및 내보내기"><svg viewBox="0 0 20 20" width="18" height="18" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M10 12.5V3.5M6.8 6.5L10 3.3l3.2 3.2"/><path d="M5.5 9.5H4.5v7h11v-7h-1"/></svg><span>공유</span></button>
       <button id="moreBtn" class="icon-btn" aria-label="페이지 메뉴"><svg viewBox="0 0 20 20" width="16" height="16" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="5" cy="10" r=".9" fill="currentColor"/><circle cx="10" cy="10" r=".9" fill="currentColor"/><circle cx="15" cy="10" r=".9" fill="currentColor"/></svg></button>
     </header>
     <article class="doc">
@@ -70,7 +71,7 @@
 </div>
 <div id="slash" class="pop" hidden></div>
 <div id="pop" class="pop" hidden></div>
-<script src="app.js?v=17"></script>
+<script src="app.js?v=18"></script>
 <script type="module" src="cloud.js?v=5"></script>
 </body>
 </html>

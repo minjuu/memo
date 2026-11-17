@@ -1266,7 +1266,7 @@ function openPop(html, anchor, onClick) {
     onClick(t.dataset.v);
   };
 }
-function closePop() { popEl.hidden = true; }
+function closePop() { popEl.hidden = true; popEl.classList.remove('wide'); }
 document.addEventListener('mousedown', e => {
   if (!popEl.hidden && !popEl.contains(e.target)) closePop();
   if (slash.open && !slashEl.contains(e.target) && !e.target.closest('.c')) closeSlash();
@@ -1344,6 +1344,111 @@ $('#settingsBtn').onclick = e => {
     if (v === 'logout') return logout();
   });
 };
+
+/* ---------- 공유 · 내보내기 · 옮기기 ---------- */
+
+const SHARE_ICON = {"pdf": "<svg viewBox=\"0 0 20 20\" width=\"18\" height=\"18\" aria-hidden=\"true\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.5\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><path d=\"M5 2.8h6.5L15 6.3v10.9H5z\"/><path d=\"M11.5 2.8v3.5H15\"/><path d=\"M7.5 11h5M7.5 13.8h3.5\"/></svg>", "print": "<svg viewBox=\"0 0 20 20\" width=\"18\" height=\"18\" aria-hidden=\"true\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.5\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><path d=\"M6 7.5V3.5h8v4\"/><rect x=\"3\" y=\"7.5\" width=\"14\" height=\"6.5\" rx=\"1.5\"/><path d=\"M6 12h8v4.5H6z\"/></svg>", "word": "<svg viewBox=\"0 0 20 20\" width=\"18\" height=\"18\" aria-hidden=\"true\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.5\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><rect x=\"3.5\" y=\"3.5\" width=\"13\" height=\"13\" rx=\"2\"/><path d=\"M6.5 7.5l1.3 5 1.7-4 1.7 4 1.3-5\"/></svg>", "md": "<svg viewBox=\"0 0 20 20\" width=\"18\" height=\"18\" aria-hidden=\"true\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.5\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><path d=\"M5 2.8h10v14.4H5z\"/><path d=\"M7.5 7h5M7.5 10h5M7.5 13h3\"/></svg>", "mail": "<svg viewBox=\"0 0 20 20\" width=\"18\" height=\"18\" aria-hidden=\"true\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.5\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><rect x=\"3\" y=\"5\" width=\"14\" height=\"10\" rx=\"1.8\"/><path d=\"M3.5 6l6.5 5 6.5-5\"/></svg>", "dup": "<svg viewBox=\"0 0 20 20\" width=\"18\" height=\"18\" aria-hidden=\"true\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.5\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><rect x=\"6.5\" y=\"6.5\" width=\"10\" height=\"10\" rx=\"1.8\"/><path d=\"M13.5 6.5V4.8a1.3 1.3 0 0 0-1.3-1.3H4.8a1.3 1.3 0 0 0-1.3 1.3v7.4a1.3 1.3 0 0 0 1.3 1.3h1.7\"/></svg>", "link": "<svg viewBox=\"0 0 20 20\" width=\"18\" height=\"18\" aria-hidden=\"true\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.5\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><path d=\"M8.5 11.5a3 3 0 0 0 4.2 0l2.6-2.6a3 3 0 0 0-4.2-4.2l-.9.9\"/><path d=\"M11.5 8.5a3 3 0 0 0-4.2 0l-2.6 2.6a3 3 0 0 0 4.2 4.2l.9-.9\"/></svg>", "share": "<svg viewBox=\"0 0 20 20\" width=\"18\" height=\"18\" aria-hidden=\"true\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.5\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><path d=\"M10 12.5V3.5M6.8 6.5L10 3.3l3.2 3.2\"/><path d=\"M5.5 9.5H4.5v7h11v-7h-1\"/></svg>", "folder": "<svg viewBox=\"0 0 20 20\" width=\"18\" height=\"18\" aria-hidden=\"true\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.5\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><path d=\"M3 6a1.5 1.5 0 0 1 1.5-1.5h3.3l1.6 1.8h6.1A1.5 1.5 0 0 1 17 7.8v7.2a1.5 1.5 0 0 1-1.5 1.5h-11A1.5 1.5 0 0 1 3 15z\"/></svg>"};
+function sharePanel(tab, anchor) {
+  const tabs = [['export', '내보내기'], ['move', '옮기기']]
+    .map(([k, l]) => `<button class="seg-tab${k === tab ? ' on' : ''}" data-v="tab:${k}">${l}</button>`).join('');
+  let body;
+  if (tab === 'export') {
+    body = [['pdf', 'PDF'], ['print', '인쇄'], ['word', 'MS Word'], ['md', 'Markdown'], ['mail', '이메일'], ['dup', '복제'], ['link', '링크 복사']]
+      .map(([k, l]) => `<button class="share-row" data-v="${k}">${SHARE_ICON[k]}<span>${l}</span></button>`).join('');
+  } else {
+    // 자기 자신과 하위 페이지로는 옮길 수 없다
+    const banned = new Set([cur]);
+    (function mark(id) { db.pages[id].children.forEach(c => { banned.add(c); mark(c); }); })(cur);
+    const opts = [];
+    (function walk(ids, depth) {
+      ids.forEach(id => {
+        const p = db.pages[id];
+        if (!banned.has(id)) opts.push(`<button class="share-row move" data-v="to:${id}" style="padding-left:${12 + depth * 16}px"><span class="emoji">${esc(p.icon || '📄')}</span><span>${esc(p.title || '제목 없음')}</span>${page().parent === id ? '<em>지금 위치</em>' : ''}</button>`);
+        if (!banned.has(id)) walk(p.children, depth + 1);
+      });
+    })(db.root, 0);
+    body = `<button class="share-row move" data-v="to:"><span class="folder">${SHARE_ICON.folder}</span><span>맨 위로</span>${page().parent ? '' : '<em>지금 위치</em>'}</button>` + opts.join('');
+  }
+  popEl.classList.add('wide');
+  openPop(`<div class="share-pop"><div class="seg">${tabs}</div><div class="share-list">${body}</div></div>`, anchor, v => {
+    if (v.startsWith('tab:')) return sharePanel(v.slice(4), anchor);
+    if (v.startsWith('to:')) return movePage(cur, v.slice(3) || null);
+    exportAs(v);
+  });
+}
+
+function movePage(id, parent) {
+  const p = db.pages[id];
+  if ((p.parent || null) === parent) return flash('이미 여기에 있어요');
+  const from = p.parent ? db.pages[p.parent].children : db.root;
+  from.splice(from.indexOf(id), 1);
+  p.parent = parent;
+  (parent ? db.pages[parent].children : db.root).push(id);
+  if (parent) db.pages[parent].open = true;
+  save();
+  renderTree();
+  renderCrumbs();
+  flash(parent ? `'${db.pages[parent].title || '제목 없음'}' 안으로 옮겼어요` : '맨 위로 옮겼어요');
+}
+
+function duplicatePage(id) {
+  const src = db.pages[id];
+  const copy = makePage(src.parent, `${src.title || '제목 없음'} (사본)`, src.icon, structuredClone(src.blocks).map(b => ({ ...b, id: uid() })));
+  // 원본 바로 아래에 둔다
+  const list = src.parent ? db.pages[src.parent].children : db.root;
+  list.splice(list.indexOf(copy.id), 1);
+  list.splice(list.indexOf(id) + 1, 0, copy.id);
+  save();
+  go(copy.id);
+  flash('복제했어요');
+}
+
+// Word가 읽을 수 있는 HTML로 만든다 (이미지는 문서 안에 넣는다)
+async function toHTML(p) {
+  const tag = { h1: 'h1', h2: 'h2', h3: 'h3', quote: 'blockquote' };
+  let html = '';
+  for (const b of p.blocks) {
+    const pad = `style="margin-left:${(b.indent || 0) * 24}px"`;
+    if (b.type === 'divider') html += '<hr>';
+    else if (b.type === 'image') {
+      const src = b.src?.startsWith('file:') ? await loadFile(b.src.slice(5)) : b.src;
+      if (src) html += `<p ${pad}><img src="${src}" style="max-width:600px"></p>`;
+    } else if (b.type === 'table') html += `<table border="1" cellpadding="6" style="border-collapse:collapse" ${pad}>${(b.rows || []).map(r => `<tr>${r.c.map(c => `<td>${c}</td>`).join('')}</tr>`).join('')}</table>`;
+    else if (b.type === 'code') html += `<pre ${pad}>${b.html}</pre>`;
+    else if (b.type === 'page') html += `<p ${pad}>📄 ${esc(db.pages[b.page]?.title || '삭제된 페이지')}</p>`;
+    else if (b.type === 'file') html += `<p ${pad}>📎 ${esc(b.name || '파일')}</p>`;
+    else {
+      const mark = b.type === 'todo' ? (b.checked ? '☑ ' : '☐ ') : b.type === 'bullet' ? '• ' : b.type === 'toggle' ? '▸ ' : '';
+      const t = tag[b.type] || 'p';
+      html += `<${t} ${pad}>${mark}${b.type === 'todo' && b.checked ? `<s>${b.html}</s>` : b.html}${b.body ? `<br>${b.body}` : ''}</${t}>`;
+    }
+  }
+  return `<html><head><meta charset="utf-8"><title>${esc(p.title || '제목 없음')}</title></head>
+    <body style="font-family:'Apple SD Gothic Neo','Malgun Gothic',sans-serif"><h1>${esc(p.icon || '')} ${esc(p.title || '제목 없음')}</h1>${html}</body></html>`;
+}
+
+async function exportAs(kind) {
+  const p = page(), name = p.title || '제목 없음';
+  if (kind === 'pdf' || kind === 'print') {
+    if (kind === 'pdf') flash('인쇄 창에서 "PDF로 저장"을 고르세요');
+    return setTimeout(() => window.print(), kind === 'pdf' ? 400 : 0);
+  }
+  if (kind === 'word') return download(`${name}.doc`, await toHTML(p), 'application/msword');
+  if (kind === 'md') return download(`${name}.md`, toMarkdown(p), 'text/markdown');
+  if (kind === 'mail') {
+    const body = toMarkdown(p).replace(/^# .*\n\n/, '');
+    const cut = body.length > 1800 ? `${body.slice(0, 1800)}\n…` : body;
+    location.href = `mailto:?subject=${encodeURIComponent(name)}&body=${encodeURIComponent(cut)}`;
+    return;
+  }
+  if (kind === 'dup') return duplicatePage(cur);
+  if (kind === 'link') {
+    const ok = await copyText(`${location.origin}${location.pathname}#/p/${cur}`);
+    return flash(ok ? '링크를 복사했어요. 로그인한 본인만 열 수 있어요' : '복사하지 못했어요');
+  }
+}
+
+$('#shareBtn').onclick = e => sharePanel('export', e.currentTarget);
 
 $('#moreBtn').onclick = e => {
   openPop(`<button class="mi compact" data-v="md">마크다운으로 저장</button>
