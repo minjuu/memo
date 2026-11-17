@@ -819,10 +819,22 @@ $('#themeBtn').onclick = () => {
 };
 themeLabel();
 
+// 모바일은 서랍처럼 열고, PC는 접은 상태를 기억한다
+const isMobile = () => matchMedia('(max-width: 760px)').matches;
 const setSide = open => document.body.classList.toggle('side-open', open);
-$('#menuBtn').onclick = () => setSide(true);
-$('#closeSide').onclick = () => setSide(false);
+function toggleSide(open) {
+  if (isMobile()) return setSide(open);
+  document.body.classList.toggle('side-collapsed', !open);
+  try { localStorage.setItem('note.side', open ? 'open' : 'closed'); } catch {}
+}
+const sideShown = () => isMobile() ? document.body.classList.contains('side-open') : !document.body.classList.contains('side-collapsed');
+try { if (localStorage.getItem('note.side') === 'closed') document.body.classList.add('side-collapsed'); } catch {}
+$('#menuBtn').onclick = () => toggleSide(!sideShown());
+$('#closeSide').onclick = () => toggleSide(false);
 $('#scrim').onclick = () => setSide(false);
+document.addEventListener('keydown', e => {
+  if ((e.metaKey || e.ctrlKey) && e.key === '\\') { e.preventDefault(); toggleSide(!sideShown()); }
+});
 
 /* ---------- 전체 페이지 ---------- */
 

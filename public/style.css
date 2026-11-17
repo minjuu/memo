@@ -172,3 +172,8 @@ main { flex: 1; min-width: 0; overflow-y: auto; }
 .all-txt small { font-size: 13px; color: var(--muted); overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
 .all-row time { flex: none; font-size: 13px; color: var(--faint); }
 #all { padding-bottom: 60px; }
+
+/* PC에서 사이드바 접기 */
+.side-collapsed #side { display: none; }
+@media (min-width: 761px) { body:not(.side-collapsed) #menuBtn { display: none; } }
+@media (max-width: 760px) { .side-collapsed #side { display: flex; } }
