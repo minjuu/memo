@@ -310,3 +310,7 @@ img.avatar { object-fit: cover; border-radius: 50%; background: var(--hover); }
 .t-table:hover .tbl-tools, .t-table:focus-within .tbl-tools { opacity: 1; }
 .tbl-tools button { padding: 2px 8px; border-radius: 6px; color: var(--muted); font-size: 12px; }
 .tbl-tools button:hover { background: var(--hover); }
+/* 토글 화살표: 마우스를 올려도 화살표 그림이 남게 배경을 나눠서 지정 */
+.tg, .tg:hover { background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='M5.5 3.5l6 4.5-6 4.5z' fill='%2337352f'/%3E%3C/svg%3E"); background-position: center; background-size: 16px; background-repeat: no-repeat; }
+.tg { background-color: transparent; }
+.tg:hover { background-color: #0000000d; }
