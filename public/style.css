@@ -276,3 +276,4 @@ main { border-radius: 0; box-shadow: none; border-left: 1px solid var(--line); }
 .t-toggle.open .tg { transform: rotate(90deg); }
 :root[data-theme="dark"] .tg { filter: invert(1); }
 @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .tg { filter: invert(1); } }
+img.avatar { object-fit: cover; border-radius: 50%; background: var(--hover); }

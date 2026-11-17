@@ -1164,7 +1164,9 @@ function renderAccount(user) {
   if (!window.cloud?.enabled) { el.hidden = true; return; }
   el.hidden = false;
   el.innerHTML = user
-    ? `<div class="acct"><span class="avatar">${esc((user.displayName || user.email || '?')[0])}</span><span class="acct-name">${esc(user.displayName || user.email)}</span><button id="logoutBtn" class="ti-btn" title="로그아웃" aria-label="로그아웃">⎋</button></div>`
+    ? `<div class="acct">${user.photoURL
+        ? `<img class="avatar" src="${esc(user.photoURL)}" alt="" referrerpolicy="no-referrer" onerror="this.replaceWith(Object.assign(document.createElement('span'),{className:'avatar',textContent:'${esc((user.displayName || user.email || '?')[0])}'}))">`
+        : `<span class="avatar">${esc((user.displayName || user.email || '?')[0])}</span>`}<span class="acct-name">${esc(user.displayName || user.email)}</span><button id="logoutBtn" class="ti-btn" title="로그아웃" aria-label="로그아웃">⎋</button></div>`
     : '<button id="loginBtn" class="login"><span class="g">G</span> Google로 로그인</button><p class="login-note">로그인하면 여러 기기에서 이어서 써요</p>';
   $('#loginBtn')?.addEventListener('click', () => window.cloud.login().catch(() => flash('로그인하지 못했어요')));
   $('#logoutBtn')?.addEventListener('click', async () => {
