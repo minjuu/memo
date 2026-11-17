@@ -231,6 +231,24 @@ $('#tree').addEventListener('click', e => {
   go(id);
 });
 $('#search').addEventListener('input', renderTree);
+// 검색창은 돋보기를 눌렀을 때만 보인다
+function toggleSearch(show) {
+  const input = $('#search');
+  input.hidden = !show;
+  $('#searchBtn').classList.toggle('on', show);
+  if (show) return input.focus();
+  if (input.value) { input.value = ''; renderTree(); }
+}
+$('#searchBtn').onclick = () => toggleSearch($('#search').hidden);
+$('#search').addEventListener('keydown', e => { if (e.key === 'Escape') toggleSearch(false); });
+$('#search').addEventListener('blur', e => { if (!e.target.value) toggleSearch(false); });
+document.addEventListener('keydown', e => {
+  if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k') {
+    e.preventDefault();
+    if (isMobile && isMobile()) setSide(true);
+    toggleSearch(true);
+  }
+});
 $('#newPage').onclick = () => { const p = makePage(null); save(); go(p.id); };
 
 /* ---------- 문서 그리기 ---------- */
