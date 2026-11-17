@@ -1631,6 +1631,8 @@ function renderAll() {
   $('#moreBtn').hidden = true;
   $('#crumbs').innerHTML = '<a href="#/all">전체 페이지</a>';
   $('#allSearch').value = allState.q;
+  $('#allSearch').hidden = !allState.q;
+  $('#allSearchBtn').classList.toggle('on', !!allState.q);
   $('#allSort').value = allState.sort;
   renderAllList();
   $('main').scrollTop = 0;
@@ -1666,6 +1668,17 @@ function renderAllList() {
 }
 
 $('#allSearch').addEventListener('input', e => { allState.q = e.target.value; renderAllList(); });
+// 전체 페이지 검색창도 돋보기를 눌러야 나온다
+function toggleAllSearch(show) {
+  const input = $('#allSearch');
+  input.hidden = !show;
+  $('#allSearchBtn').classList.toggle('on', show);
+  if (show) return input.focus();
+  if (input.value) { input.value = ''; allState.q = ''; renderAllList(); }
+}
+$('#allSearchBtn').onclick = () => toggleAllSearch($('#allSearch').hidden);
+$('#allSearch').addEventListener('keydown', e => { if (e.key === 'Escape') toggleAllSearch(false); });
+$('#allSearch').addEventListener('blur', e => { if (!e.target.value) toggleAllSearch(false); });
 $('#allSort').addEventListener('change', e => { allState.sort = e.target.value; renderAllList(); });
 
 /* ---------- 로그인 · 동기화 (cloud.js와 연결) ---------- */
