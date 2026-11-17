@@ -105,7 +105,7 @@ function checkpoint() {
 }
 function restore(from, to) {
   checkpoint();
-  if (!from.length) return flash(to === hist.redo ? '더 되돌릴 게 없어요' : '다시 할 게 없어요');
+  if (!from.length) return false;
   to.push(hist.last);
   hist.last = from.pop();
   const state = JSON.parse(hist.last), p = db.pages[hist.page];
@@ -125,8 +125,8 @@ document.addEventListener('keydown', e => {
   if (!(e.metaKey || e.ctrlKey) || !cur) return;
   const k = e.key.toLowerCase();
   // ⌘Z 되돌리기, ⇧⌘Z 또는 Ctrl+Y 다시 하기
-  if (k === 'z' && !e.shiftKey) { e.preventDefault(); restore(hist.undo, hist.redo) && flash('되돌렸어요'); }
-  else if ((k === 'z' && e.shiftKey) || k === 'y') { e.preventDefault(); restore(hist.redo, hist.undo) && flash('다시 했어요'); }
+  if (k === 'z' && !e.shiftKey) { e.preventDefault(); restore(hist.undo, hist.redo); }
+  else if ((k === 'z' && e.shiftKey) || k === 'y') { e.preventDefault(); restore(hist.redo, hist.undo); }
 }, true);
 
 let saveTimer;
