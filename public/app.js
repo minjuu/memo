@@ -817,9 +817,11 @@ function updateSlash() {
 
 function position(pop, rect) {
   const w = pop.offsetWidth, h = pop.offsetHeight;
-  let x = Math.min(rect.left, innerWidth - w - 8), y = rect.bottom + 6;
-  if (y + h > innerHeight - 8) y = Math.max(8, rect.top - h - 6);
-  pop.style.left = `${Math.max(8, x)}px`;
+  // 화면 가장자리와 16px은 띄운다
+  const m = 16;
+  let x = Math.min(rect.left, innerWidth - w - m), y = rect.bottom + 8;
+  if (y + h > innerHeight - m) y = Math.max(m, rect.top - h - 8);
+  pop.style.left = `${Math.max(m, x)}px`;
   pop.style.top = `${y}px`;
 }
 
