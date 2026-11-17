@@ -266,3 +266,13 @@ main { background: var(--panel); border-radius: 14px; box-shadow: 0 0 0 1px #000
 }
 .ml.t-callout, .ml.t-code { padding: 0; background: none; border-radius: 0; }
 .tg { font-size: 15px; }
+
+/* 패널은 위아래 꽉 차게, 모서리 없이 / 세로 안내선 없음 / 토글 화살표 크게 */
+.app { padding: 0; }
+main { border-radius: 0; box-shadow: none; border-left: 1px solid var(--line); }
+.bar { border-radius: 0; }
+.blk[style*="--ind"]::before { content: none; }
+.tg { width: 24px; height: 28px; font-size: 0; transform: none; background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='M5.5 3.5l6 4.5-6 4.5z' fill='%2337352f'/%3E%3C/svg%3E") center/16px no-repeat; transition: transform .15s; }
+.t-toggle.open .tg { transform: rotate(90deg); }
+:root[data-theme="dark"] .tg { filter: invert(1); }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .tg { filter: invert(1); } }
