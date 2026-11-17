@@ -119,11 +119,14 @@ function restore(from, to) {
   if (keep) place(keep, -1);
   save();
   hist.restoring = false;
+  return true;
 }
 document.addEventListener('keydown', e => {
-  if (!(e.metaKey || e.ctrlKey) || e.key.toLowerCase() !== 'z' || !cur) return;
-  e.preventDefault();
-  if (e.shiftKey) restore(hist.redo, hist.undo); else restore(hist.undo, hist.redo);
+  if (!(e.metaKey || e.ctrlKey) || !cur) return;
+  const k = e.key.toLowerCase();
+  // ⌘Z 되돌리기, ⇧⌘Z 또는 Ctrl+Y 다시 하기
+  if (k === 'z' && !e.shiftKey) { e.preventDefault(); restore(hist.undo, hist.redo) && flash('되돌렸어요'); }
+  else if ((k === 'z' && e.shiftKey) || k === 'y') { e.preventDefault(); restore(hist.redo, hist.undo) && flash('다시 했어요'); }
 }, true);
 
 let saveTimer;
