@@ -359,3 +359,8 @@ img.avatar { object-fit: cover; border-radius: 50%; background: var(--hover); }
 #icon { flex: none; margin: 0; padding: 2px 4px; border-radius: 6px; font-size: 20px; line-height: 1.2; }
 #title { flex: 1; min-width: 0; margin: 0; font-size: 21px; font-weight: 700; letter-spacing: -0.3px; line-height: 1.35; }
 @media (max-width: 760px) { #icon { font-size: 19px; } #title { font-size: 20px; } }
+
+/* 아이콘이 없을 때: 제목 위에 마우스를 올리면 '아이콘 추가'가 보인다 */
+#icon:empty { width: 26px; height: 26px; padding: 0; opacity: 0; transition: opacity .15s; }
+#icon:empty::before { content: '☺'; font-size: 17px; color: var(--faint); font-family: inherit; }
+.doc-head:hover #icon:empty, #icon:empty:focus-visible { opacity: 1; }

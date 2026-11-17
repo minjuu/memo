@@ -1295,7 +1295,8 @@ function blockMenu(b, anchor) {
 }
 
 $('#icon').onclick = e => {
-  openPop(`<div class="pop-h">아이콘</div><div class="icons">${ICONS.map(i => `<button data-v="${i}">${i}</button>`).join('')}</div>`, e.currentTarget, v => {
+  openPop(`<div class="pop-h">아이콘</div><div class="icons">${ICONS.map(i => `<button data-v="${i}">${i}</button>`).join('')}</div>` +
+    (page().icon ? '<hr><button class="mi compact danger" data-v="">아이콘 없애기</button>' : ''), e.currentTarget, v => {
     page().icon = v;
     save();
     renderPage();
