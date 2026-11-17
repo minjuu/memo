@@ -1,4 +1,4 @@
-// Memo: 페이지 트리 + 블록 편집기. 이 브라우저의 localStorage에 저장하고, 로그인하면 cloud.js가 Firestore와 동기화한다.
+// Tidy: 페이지 트리 + 블록 편집기. 이 브라우저의 localStorage에 저장하고, 로그인하면 cloud.js가 Firestore와 동기화한다.
 const KEY = 'note.v1';
 const $ = (s, el = document) => el.querySelector(s);
 const uid = () => Math.random().toString(36).slice(2, 10);
@@ -42,7 +42,7 @@ function seed() {
   db = { root: [], pages: {} };
   const b = (type, html, extra) => ({ id: uid(), type, html, ...extra });
   const home = makePage(null, '시작하기', '👋', [
-    b('callout', 'Memo에 오신 걸 환영해요. 쓴 내용은 자동으로 저장돼요.'),
+    b('callout', 'Tidy에 오신 걸 환영해요. 쓴 내용은 자동으로 저장돼요.'),
     b('h2', '이렇게 써보세요'),
     b('todo', '빈 줄에서 <b>/</b> 를 입력해 블록 종류 고르기'),
     b('todo', '<code># </code> 제목, <code>- </code> 목록, <code>1. </code> 번호, <code>[] </code> 할 일, <code>&gt; </code> 인용'),
@@ -259,7 +259,7 @@ function renderPage() {
   $('#all').hidden = true;
   $('#moreBtn').hidden = false;
   $('.doc').classList.toggle('full', !!p.full);
-  document.title = `${p.title || '제목 없음'} · Memo`;
+  document.title = `${p.title || '제목 없음'} · Tidy`;
   $('#icon').textContent = p.icon;
   $('#title').textContent = p.title;
   renderCrumbs();
@@ -1359,7 +1359,7 @@ const titleEl = $('#title');
 titleEl.addEventListener('input', () => {
   page().title = titleEl.textContent.replace(/\n/g, '');
   if (!page().title) titleEl.innerHTML = '';
-  document.title = `${page().title || '제목 없음'} · Memo`;
+  document.title = `${page().title || '제목 없음'} · Tidy`;
   save();
   renderTree();
   renderCrumbs();
@@ -1431,7 +1431,7 @@ function toMarkdown(p) {
 $('#exportBtn').onclick = () => {
   const d = new Date();
   const stamp = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
-  download(`Memo-백업-${stamp}.json`, JSON.stringify(db, null, 2), 'application/json');
+  download(`Tidy-백업-${stamp}.json`, JSON.stringify(db, null, 2), 'application/json');
 };
 
 $('#importFile').onchange = async e => {
@@ -1503,7 +1503,7 @@ function ago(t) {
 }
 
 function renderAll() {
-  document.title = '전체 페이지 · Memo';
+  document.title = '전체 페이지 · Tidy';
   $('.doc').hidden = true;
   $('#all').hidden = false;
   $('#moreBtn').hidden = true;
@@ -1557,7 +1557,7 @@ function renderAccount(user) {
     ? `<div class="acct" title="${esc(user.email || '')}">${user.photoURL
         ? `<img class="avatar" src="${esc(user.photoURL)}" alt="" referrerpolicy="no-referrer" onerror="this.replaceWith(Object.assign(document.createElement('span'),{className:'avatar',textContent:'${esc((user.displayName || user.email || '?')[0])}'}))">`
         : `<span class="avatar">${esc((user.displayName || user.email || '?')[0])}</span>`}<span class="acct-name">${esc(user.displayName || user.email)}</span></div>`
-    : '<button id="loginBtn" class="login"><svg viewBox="0 0 48 48" width="18" height="18" aria-hidden="true"><path fill="#FFC107" d="M43.6 20.5H42V20H24v8h11.3C33.7 32.7 29.2 36 24 36c-6.6 0-12-5.4-12-12s5.4-12 12-12c3.1 0 5.8 1.2 7.9 3.1l5.7-5.7C34 6.1 29.3 4 24 4 12.9 4 4 12.9 4 24s8.9 20 20 20 20-8.9 20-20c0-1.3-.1-2.4-.4-3.5z"/><path fill="#FF3D00" d="M6.3 14.7l6.6 4.8C14.7 15.1 19 12 24 12c3.1 0 5.8 1.2 7.9 3.1l5.7-5.7C34 6.1 29.3 4 24 4 16.3 4 9.7 8.3 6.3 14.7z"/><path fill="#4CAF50" d="M24 44c5.2 0 9.9-2 13.4-5.2l-6.2-5.2C29.2 35.1 26.7 36 24 36c-5.2 0-9.6-3.3-11.3-7.9l-6.5 5C9.5 39.6 16.2 44 24 44z"/><path fill="#1976D2" d="M43.6 20.5H42V20H24v8h11.3c-.8 2.2-2.2 4.2-4.1 5.6l6.2 5.2C37 39.2 44 34 44 24c0-1.3-.1-2.4-.4-3.5z"/></svg><span>구글로 계속하기</span></button>';
+    : '<button id="loginBtn" class="login"><svg viewBox="0 0 48 48" width="18" height="18" aria-hidden="true"><path fill="#FFC107" d="M43.6 20.5H42V20H24v8h11.3C33.7 32.7 29.2 36 24 36c-6.6 0-12-5.4-12-12s5.4-12 12-12c3.1 0 5.8 1.2 7.9 3.1l5.7-5.7C34 6.1 29.3 4 24 4 12.9 4 4 12.9 4 24s8.9 20 20 20 20-8.9 20-20c0-1.3-.1-2.4-.4-3.5z"/><path fill="#FF3D00" d="M6.3 14.7l6.6 4.8C14.7 15.1 19 12 24 12c3.1 0 5.8 1.2 7.9 3.1l5.7-5.7C34 6.1 29.3 4 24 4 16.3 4 9.7 8.3 6.3 14.7z"/><path fill="#4CAF50" d="M24 44c5.2 0 9.9-2 13.4-5.2l-6.2-5.2C29.2 35.1 26.7 36 24 36c-5.2 0-9.6-3.3-11.3-7.9l-6.5 5C9.5 39.6 16.2 44 24 44z"/><path fill="#1976D2" d="M43.6 20.5H42V20H24v8h11.3c-.8 2.2-2.2 4.2-4.1 5.6l6.2 5.2C37 39.2 44 34 44 24c0-1.3-.1-2.4-.4-3.5z"/></svg><span>구글로 로그인하기</span></button>';
   $('#loginBtn')?.addEventListener('click', () => window.cloud.login().catch(() => flash('로그인하지 못했어요')));
 
 }
