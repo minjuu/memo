@@ -211,7 +211,7 @@ function blockHtml(b) {
   if (b.type === 'toggle') {
     pre = `<button class="tg" tabindex="-1" aria-label="${b.open ? '접기' : '펼치기'}" aria-expanded="${!!b.open}">▸</button>`;
     body = `<div class="tg-col"><div class="c" contenteditable="true" data-ph="토글">${b.html}</div>` +
-      `<div class="tb" contenteditable="true" data-ph="안에 넣을 내용"${b.open ? '' : ' hidden'}>${b.body || ''}</div></div>`;
+      (b.body ? `<div class="tb" contenteditable="true"${b.open ? '' : ' hidden'}>${b.body}</div>` : '') + '</div>';
   } else if (b.type === 'divider') body = '<hr>';
   else if (b.type === 'page') {
     const t = db.pages[b.page];
@@ -221,14 +221,53 @@ function blockHtml(b) {
     body = `<div class="c" contenteditable="true" data-ph="${PH[b.type]}"${b.type === 'code' ? ' spellcheck="false"' : ''}>${b.html}</div>`;
   }
   const solid = b.type === 'divider' || b.type === 'page';
-  return `<div class="blk t-${b.type}${b.checked ? ' done' : ''}${b.type === 'toggle' && b.open ? ' open' : ''}" data-id="${b.id}"${solid ? ' tabindex="-1"' : ''}>
+  return `<div class="blk t-${b.type}${b.checked ? ' done' : ''}${b.type === 'toggle' && b.open ? ' open' : ''}" data-id="${b.id}"${solid ? ' tabindex="-1"' : ''}${b.indent ? ` style="--ind:${b.indent}"` : ''}${hiddenIds.has(b.id) ? ' hidden' : ''}>
     <div class="hd"><button class="add" tabindex="-1" aria-label="아래에 블록 추가" title="아래에 블록 추가">＋</button><button class="grip" draggable="true" tabindex="-1" aria-label="블록 메뉴" title="끌어서 옮기기 · 눌러서 메뉴">⋮⋮</button></div>
     ${pre}${body}</div>`;
+}
+
+// 접힌 토글보다 더 들여쓴 바로 아래 블록들은 숨긴다
+let hiddenIds = new Set();
+function computeHidden(list) {
+  const out = new Set();
+  let fold = null;
+  for (const b of list) {
+    const ind = b.indent || 0;
+    if (fold !== null && ind > fold) { out.add(b.id); continue; }
+    fold = b.type === 'toggle' && !b.open ? ind : null;
+  }
+  return out;
+}
+
+// i번째 블록과 그 아래 더 들여쓴 블록(자식)들의 마지막 위치
+function subtreeEnd(i) {
+  const list = page().blocks, ind = list[i].indent || 0;
+  let j = i;
+  while (list[j + 1] && (list[j + 1].indent || 0) > ind) j++;
+  return j;
+}
+
+function shiftIndent(b, delta) {
+  const list = page().blocks, i = idx(b.id), end = subtreeEnd(i);
+  const prev = list[i - 1];
+  const max = prev ? (prev.indent || 0) + 1 : 0;
+  const next = Math.max(0, Math.min(max, (b.indent || 0) + delta));
+  const d = next - (b.indent || 0);
+  if (!d) return false;
+  for (let j = i; j <= end; j++) list[j].indent = Math.max(0, (list[j].indent || 0) + d);
+  return true;
+}
+
+const visibleRows = () => [...document.querySelectorAll('#blocks .blk:not([hidden])')];
+function neighbor(id, dir) {
+  const rows = visibleRows(), k = rows.findIndex(r => r.dataset.id === id);
+  return rows[k + dir] ? blk(rows[k + dir].dataset.id) : null;
 }
 
 function renderBlocks(focusId, at = 0) {
   const p = page();
   if (!p.blocks.length) p.blocks.push({ id: uid(), type: 'text', html: '' });
+  hiddenIds = computeHidden(p.blocks);
   $('#blocks').innerHTML = p.blocks.map(blockHtml).join('');
   if (focusId) place(focusId, at);
 }
@@ -303,7 +342,7 @@ function clean(html) {
         continue;
       }
       for (const a of [...n.attributes]) {
-        if (!(n.tagName === 'A' && a.name === 'href' && /^https?:/i.test(a.value))) n.removeAttribute(a.name);
+        if (!(n.tagName === 'A' && a.name === 'href' && /^(https?|mailto):/i.test(a.value))) n.removeAttribute(a.name);
       }
     }
   })(t.content);
@@ -385,15 +424,22 @@ function splitBlock(b, el) {
     setType(b, 'text');
     return commit(b.id, 0);
   }
-  const nb = insertAfter(b.id, LISTS.includes(b.type) ? b.type : 'text', after);
+  const type = LISTS.includes(b.type) ? b.type : 'text';
+  const extra = b.indent ? { indent: b.indent } : undefined;
+  let nb;
+  if (b.type === 'toggle' && b.open && !after) nb = insertAfter(b.id, 'text', '', { indent: (b.indent || 0) + 1 });
+  else if (b.type === 'toggle' && !b.open) {
+    nb = { id: uid(), type, html: after, ...extra };
+    page().blocks.splice(subtreeEnd(idx(b.id)) + 1, 0, nb);
+  } else nb = insertAfter(b.id, type, after, extra);
   commit(nb.id, 0);
 }
 
 function mergeUp(b, el) {
-  const i = idx(b.id), prev = page().blocks[i - 1];
+  const i = idx(b.id), prev = neighbor(b.id, -1);
   if (!prev) return;
   if (prev.type === 'divider' || prev.type === 'page') {
-    page().blocks.splice(i - 1, 1);
+    page().blocks.splice(idx(prev.id), 1);
     return commit(b.id, 0);
   }
   const at = textLen(prev.html);
@@ -628,8 +674,8 @@ blocksEl.addEventListener('keydown', e => {
     // 구분선과 페이지 링크 블록이 선택된 상태
     if (e.key === 'Backspace' || e.key === 'Delete') { e.preventDefault(); removeBlock(b.id); }
     else if (e.key === 'Enter') { e.preventDefault(); const nb = insertAfter(b.id); commit(nb.id, 0); }
-    else if (e.key === 'ArrowUp' && list[i - 1]) { e.preventDefault(); place(list[i - 1].id, -1); }
-    else if (e.key === 'ArrowDown' && list[i + 1]) { e.preventDefault(); place(list[i + 1].id, 0); }
+    else if (e.key === 'ArrowUp' && neighbor(b.id, -1)) { e.preventDefault(); place(neighbor(b.id, -1).id, -1); }
+    else if (e.key === 'ArrowDown' && neighbor(b.id, 1)) { e.preventDefault(); place(neighbor(b.id, 1).id, 0); }
     return;
   }
   if (e.isComposing || e.keyCode === 229) return;
@@ -638,24 +684,31 @@ blocksEl.addEventListener('keydown', e => {
   if (e.key === 'Enter' && !e.shiftKey) {
     e.preventDefault();
     if (b.type === 'code') return document.execCommand('insertLineBreak');
-    // 펼쳐진 토글에서 엔터를 치면 안쪽 내용으로 들어간다
-    if (b.type === 'toggle' && b.open && caret(el) === el.textContent.length) return placeBody(b.id, 0);
+    // 예전 방식 토글(안쪽 글이 있는 것)은 안쪽 글로 들어간다
+    if (b.type === 'toggle' && b.open && b.body && caret(el) === el.textContent.length) return placeBody(b.id, 0);
     return splitBlock(b, el);
   }
   if (e.key === 'Backspace' && collapsed && at === 0) {
     e.preventDefault();
     sync(b, el);
     if (b.type !== 'text') { setType(b, 'text'); return commit(b.id, 0); }
+    if (b.indent && shiftIndent(b, -1)) return commit(b.id, 0);
     return mergeUp(b, el);
   }
-  if (e.key === 'ArrowUp' && collapsed && at === 0 && list[i - 1]) {
+  if (e.key === 'ArrowUp' && collapsed && at === 0 && neighbor(b.id, -1)) {
     e.preventDefault();
-    const prev = list[i - 1];
-    return prev.type === 'toggle' && prev.open ? placeBody(prev.id, -1) : place(prev.id, -1);
+    const prev = neighbor(b.id, -1);
+    return prev.type === 'toggle' && prev.open && prev.body ? placeBody(prev.id, -1) : place(prev.id, -1);
   }
-  if (e.key === 'ArrowDown' && b.type === 'toggle' && b.open && collapsed && at === el.textContent.length) { e.preventDefault(); return placeBody(b.id, 0); }
-  if (e.key === 'ArrowDown' && collapsed && at === el.textContent.length && list[i + 1]) { e.preventDefault(); return place(list[i + 1].id, 0); }
-  if (e.key === 'Tab') e.preventDefault();
+  if (e.key === 'ArrowDown' && b.type === 'toggle' && b.open && b.body && collapsed && at === el.textContent.length) { e.preventDefault(); return placeBody(b.id, 0); }
+  if (e.key === 'ArrowDown' && collapsed && at === el.textContent.length && neighbor(b.id, 1)) { e.preventDefault(); return place(neighbor(b.id, 1).id, 0); }
+  // Tab 들여쓰기, Shift+Tab 내어쓰기 (자식 블록도 함께)
+  if (e.key === 'Tab') {
+    e.preventDefault();
+    sync(b, el);
+    if (shiftIndent(b, e.shiftKey ? -1 : 1)) commit(b.id, at);
+    return;
+  }
   if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'e') {
     e.preventDefault();
     wrapCode();
@@ -702,16 +755,71 @@ blocksEl.addEventListener('paste', e => {
   const text = e.clipboardData.getData('text/plain').replace(/\r/g, '');
   const b = blk(el.closest('.blk').dataset.id);
   if (b.type === 'code' || !text.includes('\n')) return document.execCommand('insertText', false, text);
-  const [first, ...rest] = text.split('\n');
-  document.execCommand('insertText', false, first);
+  const parsed = parseOutline(text, b.indent || 0);
+  if (!parsed.length) return;
   sync(b, el);
-  let last = b;
-  for (const line of rest) {
-    const [type, body] = parseLine(line);
-    last = insertAfter(last.id, type, esc(body), type === 'todo' ? { checked: /^\[x\]/i.test(line.trim().slice(2)) } : undefined);
-  }
-  commit(last.id, -1);
+  const list = page().blocks;
+  let at = subtreeEnd(idx(b.id)) + 1;
+  // 빈 줄에 붙여넣으면 그 줄을 첫 블록으로 바꾼다
+  if (b.type === 'text' && !b.html) { list.splice(idx(b.id), 1); at--; }
+  list.splice(at, 0, ...parsed);
+  commit(parsed[parsed.length - 1].id, -1);
+  flash(`${parsed.length}개 블록을 붙여넣었어요`);
 });
+
+// 들여쓴 마크다운(노션·크래프트 내보내기 포함)을 블록 목록으로 바꾼다
+function inlineMd(s) {
+  const link = (text, url) => `<a href="${esc(/^(https?|mailto):/i.test(url) ? url : `https://${url}`)}">${text}</a>`;
+  return esc(s.replace(/\\([-*_\\>#\[\]()!])/g, '$1'))
+    .replace(/!\[([^\]]*)\]\(([^)\s]+)\)/g, (m, alt, url) => link(`🖼 ${alt || '이미지'}`, url))
+    .replace(/\[([^\]]+)\]\(([^)\s]+)\)/g, (m, t, url) => link(t, url))
+    .replace(/\*\*(.+?)\*\*/g, '<b>$1</b>')
+    .replace(/~~(.+?)~~/g, '<s>$1</s>')
+    .replace(/`([^`]+)`/g, '<code>$1</code>');
+}
+
+function parseOutline(text, base = 0) {
+  const out = [], stack = [];
+  let fence = null;
+  for (const raw of text.split('\n')) {
+    const line = raw.replace(/\t/g, '    ');
+    if (fence) {
+      if (/^\s*```/.test(line)) { fence = null; continue; }
+      fence.html += (fence.html ? '\n' : '') + esc(line);
+      continue;
+    }
+    if (!line.trim()) continue;
+    const spaces = line.match(/^ */)[0].length;
+    let body = line.trim();
+    if (/^\|?\s*:?-{2,}/.test(body) && /^[|:\-\s]+$/.test(body)) continue; // 표 구분선
+    // 크래프트는 이미지·표를 맨 앞에 붙여 내보내므로 바로 위 항목의 자식으로 둔다
+    const attach = /^(!\[|\|)/.test(body);
+    // 크래프트의 접기(+) 줄은 실제 단계보다 4칸 더 들여써서 나온다
+    const eff = body.startsWith('+ ') ? spaces - 4 : spaces;
+    if (!attach) while (stack.length && eff <= stack[stack.length - 1]) stack.pop();
+    const indent = base + stack.length;
+    if (!attach) stack.push(eff);
+    let type = 'text', checked;
+    const m = [
+      [/^\+\s+/, 'toggle'], [/^[-*+]\s+\[([ xX])\]\s*/, 'todo'], [/^[-*]\s+/, 'bullet'], [/^\d+[.)]\s+/, 'number'],
+      [/^###\s+/, 'h3'], [/^##\s+/, 'h2'], [/^#\s+/, 'h1'], [/^>\s?/, 'quote'],
+    ].find(([re]) => re.test(body));
+    if (/^-{3,}$/.test(body)) { out.push({ id: uid(), type: 'divider', html: '', indent }); continue; }
+    if (/^```/.test(body)) { fence = { id: uid(), type: 'code', html: '', indent }; out.push(fence); continue; }
+    if (m) {
+      type = m[1];
+      if (type === 'todo') checked = /x/i.test(body.match(m[0])[1]);
+      body = body.replace(m[0], '');
+    }
+    if (type === 'text' && body.startsWith('|')) body = body.replace(/^\||\|$/g, '').split('|').map(c => c.trim()).filter(Boolean).join('  ·  ');
+    const b = { id: uid(), type, html: clean(inlineMd(body)), indent };
+    if (type === 'todo') b.checked = checked;
+    if (type === 'toggle') b.open = true;
+    if (!indent) delete b.indent;
+    out.push(b);
+  }
+  return out;
+}
 
 function parseLine(line) {
   const m = [[/^###\s+/, 'h3'], [/^##\s+/, 'h2'], [/^#\s+/, 'h1'], [/^[-*]\s+\[[ xX]\]\s+/, 'todo'], [/^[-*]\s+/, 'bullet'],
@@ -740,13 +848,11 @@ blocksEl.addEventListener('click', e => {
   if (e.target.closest('.grip')) return blockMenu(b, e.target.closest('.grip'));
   if (e.target.closest('.tg')) {
     b.open = !b.open;
-    save();
-    row.classList.toggle('open', b.open);
-    const tg = row.querySelector('.tg');
-    tg.setAttribute('aria-expanded', b.open);
-    tg.setAttribute('aria-label', b.open ? '접기' : '펼치기');
-    bodyOf(b.id).hidden = !b.open;
-    return b.open ? placeBody(b.id, 0) : place(b.id, -1);
+    const y = row.getBoundingClientRect().top;
+    commit(b.id, -1);
+    // 화면이 튀지 않게 토글 위치를 그대로 둔다
+    $('main').scrollTop += $(`.blk[data-id="${b.id}"]`).getBoundingClientRect().top - y;
+    return;
   }
   if (b.type === 'divider') row.focus();
 });
@@ -910,7 +1016,10 @@ function toMarkdown(p) {
   let n = 0;
   const lines = p.blocks.map(b => {
     n = b.type === 'number' ? n + 1 : 0;
-    const t = md(b.html);
+    const t = md(b.html), pad = '  '.repeat(b.indent || 0);
+    return pad + line(b, t).split('\n').join(`\n${pad}`);
+  });
+  function line(b, t) {
     switch (b.type) {
       case 'h1': return `# ${t}`;
       case 'h2': return `## ${t}`;
@@ -926,7 +1035,7 @@ function toMarkdown(p) {
       case 'page': return `- 📄 ${db.pages[b.page]?.title || '삭제된 페이지'}`;
       default: return t;
     }
-  });
+  }
   return `# ${p.title || '제목 없음'}\n\n${lines.join('\n')}\n`;
 }
 
@@ -1016,6 +1125,18 @@ function renderAll() {
   $('main').scrollTop = 0;
 }
 
+// 전체 페이지 카드에 들어갈 작은 미리보기
+function miniPreview(p) {
+  const rows = p.blocks.filter(b => b.html || b.type === 'divider').slice(0, 16).map(b => {
+    const mark = b.type === 'todo' ? `<i class="mk-todo${b.checked ? ' on' : ''}"></i>` : b.type === 'toggle' ? '<i>▾</i>'
+      : b.type === 'bullet' ? '<i>•</i>' : '';
+    const text = esc(b.html.replace(/<br>/g, ' ').replace(/<[^>]+>/g, '').replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>'));
+    if (b.type === 'divider') return '<span class="ml hr"></span>';
+    return `<span class="ml t-${b.type}${b.checked ? ' done' : ''}" style="padding-left:${(b.indent || 0) * 9}px">${mark}${text}</span>`;
+  }).join('');
+  return rows || '<span class="ml empty">빈 페이지</span>';
+}
+
 function renderAllList() {
   const q = allState.q.trim().toLowerCase();
   let list = Object.values(db.pages).filter(p => !q || (p.title || '제목 없음').toLowerCase().includes(q) ||
@@ -1025,11 +1146,10 @@ function renderAllList() {
   $('#allCount').textContent = `${list.length}개`;
   $('#allList').innerHTML = list.length ? list.map(p => {
     const where = pathOf(p.id).slice(0, -1).map(x => x.title || '제목 없음').join(' / ');
-    const text = p.blocks.map(b => b.html.replace(/<[^>]+>/g, '')).filter(Boolean).join(' ').slice(0, 80);
-    return `<a class="all-row" href="#/p/${p.id}">
-      <span class="all-ico emoji">${esc(p.icon)}</span>
-      <span class="all-txt"><b>${esc(p.title || '제목 없음')}</b><small>${esc(where ? `${where} · ${text}` : text) || '빈 페이지'}</small></span>
-      <time>${ago(p.updated)}</time></a>`;
+    return `<a class="doc-card" href="#/p/${p.id}">
+      <span class="dc-head"><span class="emoji">${esc(p.icon)}</span><b>${esc(p.title || '제목 없음')}</b></span>
+      <span class="dc-mini">${miniPreview(p)}</span>
+      <span class="dc-foot">${esc(where || '최상위')} · ${ago(p.updated)}</span></a>`;
   }).join('') : '<p class="empty-tree">찾는 페이지가 없어요</p>';
 }
 
